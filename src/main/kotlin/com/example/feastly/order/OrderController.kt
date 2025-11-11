@@ -1,0 +1,33 @@
+package com.example.feastly.order
+
+import jakarta.validation.Valid
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.*
+import java.util.UUID
+
+@RestController
+@RequestMapping("/api/orders")
+class OrderController(
+    private val service: OrderService
+) {
+    @PostMapping
+    fun create(@Valid @RequestBody request: CreateOrderRequest): ResponseEntity<OrderResponse> {
+        val saved = service.create(request)
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved.toResponse())
+    }
+
+    @PatchMapping("/{id}/status")
+    fun updateStatus(
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: UpdateOrderStatusRequest
+    ): OrderResponse {
+        val updated = service.updateStatus(id, request.status)
+        return updated.toResponse()
+    }
+
+    @GetMapping("/user/{userId}")
+    fun byUser(@PathVariable userId: UUID): List<OrderResponse> =
+        service.listByUser(userId).map { it.toResponse() }
+}
+
