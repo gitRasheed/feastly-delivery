@@ -8,7 +8,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "restaurants")
-data class Restaurant(
+class Restaurant(
     @Id val id: UUID = UUID.randomUUID(),
     @Column(nullable = false) val name: String,
     @Column(nullable = false) val address: String,

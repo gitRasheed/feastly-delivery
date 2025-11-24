@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/users")
-class UserController(private val system: UserSystem) {
+class UserController(private val system: UserService) {
     @PostMapping
     fun register(@Valid @RequestBody dto: UserRegisterRequest): ResponseEntity<UserResponse> {
         val saved = system.register(dto)
