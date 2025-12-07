@@ -3,8 +3,6 @@ package com.example.feastly.order
 import com.example.feastly.restaurant.Restaurant
 import com.example.feastly.user.User
 import jakarta.persistence.*
-import org.hibernate.annotations.JdbcTypeCode
-import org.hibernate.type.SqlTypes
 import java.time.Instant
 import java.util.UUID
 
@@ -33,8 +31,7 @@ class DeliveryOrder(
     val driverId: UUID? = null,
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false, columnDefinition = "order_status")
+    @Column(nullable = false)
     var status: OrderStatus = OrderStatus.AWAITING_RESTAURANT,
 
     @Column(name = "created_at", nullable = false)

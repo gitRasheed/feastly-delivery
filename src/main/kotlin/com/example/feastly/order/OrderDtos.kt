@@ -4,8 +4,6 @@ import jakarta.validation.constraints.NotNull
 import java.time.Instant
 import java.util.UUID
 
-// Requests
-
 data class CreateOrderRequest(
     @field:NotNull val restaurantId: UUID,
     val driverId: UUID? = null,
@@ -14,8 +12,6 @@ data class CreateOrderRequest(
 data class UpdateOrderStatusRequest(
     @field:NotNull val status: OrderStatus
 )
-
-// Response
 
 data class OrderResponse(
     val id: UUID,

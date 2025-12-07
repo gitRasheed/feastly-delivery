@@ -48,15 +48,9 @@ class OrderService(
 
     @Transactional(readOnly = true)
     fun getOrdersForUser(userId: UUID): List<DeliveryOrder> {
-        // Verify user exists
         if (!userRepository.existsById(userId)) {
             throw UserNotFoundException(userId)
         }
-        return orderRepository.findByUser_Id(userId)
-    }
-
-    @Transactional(readOnly = true)
-    fun listByUser(userId: UUID): List<DeliveryOrder> {
         return orderRepository.findByUser_Id(userId)
     }
 }

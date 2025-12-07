@@ -37,7 +37,4 @@ class OrderController(
         return updated.toResponse()
     }
 
-    @GetMapping("/user/{userId}")
-    fun byUser(@PathVariable userId: UUID): List<OrderResponse> =
-        service.listByUser(userId).map { it.toResponse() }
 }

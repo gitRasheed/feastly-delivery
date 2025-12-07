@@ -10,14 +10,10 @@ import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
-import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
+import org.springframework.test.context.ActiveProfiles
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
+@ActiveProfiles("test")
 class RestaurantControllerIntegrationTest {
 
     @LocalServerPort
@@ -25,23 +21,6 @@ class RestaurantControllerIntegrationTest {
 
     @Autowired
     lateinit var restTemplate: TestRestTemplate
-
-    companion object {
-        @Container
-        val postgres = PostgreSQLContainer("postgres:15-alpine").apply {
-            withDatabaseName("testdb")
-            withUsername("test")
-            withPassword("test")
-        }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun properties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url", postgres::getJdbcUrl)
-            registry.add("spring.datasource.username", postgres::getUsername)
-            registry.add("spring.datasource.password", postgres::getPassword)
-        }
-    }
 
     private fun url(path: String) = "http://localhost:$port$path"
 
@@ -64,4 +43,3 @@ class RestaurantControllerIntegrationTest {
         assertTrue(listResponse.body!!.any { it.id == created.id })
     }
 }
-
