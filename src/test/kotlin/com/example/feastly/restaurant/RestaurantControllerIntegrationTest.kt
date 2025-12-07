@@ -20,7 +20,7 @@ class RestaurantControllerIntegrationTest {
     private var port: Int = 0
 
     @Autowired
-    lateinit var restTemplate: TestRestTemplate
+    private lateinit var restTemplate: TestRestTemplate
 
     private fun url(path: String) = "http://localhost:$port$path"
 

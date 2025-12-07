@@ -13,14 +13,17 @@ class GlobalExceptionHandler {
 
     data class ErrorResponse(
         val error: String,
-        val details: Map<String, String?>? = null
-    )
+        private val internalDetails: Map<String, String?>? = null
+    ) {
+        val details: Map<String, String?>?
+            get() = internalDetails?.toMap()
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(ex: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {
         val details = ex.bindingResult.fieldErrors.associate { it.field to it.defaultMessage }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(ErrorResponse(error = "Validation failed", details = details))
+            .body(ErrorResponse(error = "Validation failed", internalDetails = details))
     }
 
     @ExceptionHandler(DataIntegrityViolationException::class)

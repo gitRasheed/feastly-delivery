@@ -26,7 +26,7 @@ class OrderControllerIntegrationTest {
     private var port: Int = 0
 
     @Autowired
-    lateinit var restTemplate: TestRestTemplate
+    private lateinit var restTemplate: TestRestTemplate
 
     private fun url(path: String) = "http://localhost:$port$path"
 
@@ -44,8 +44,16 @@ class OrderControllerIntegrationTest {
         assertEquals(HttpStatus.CREATED, userRes.statusCode)
         val userId: UUID = userRes.body!!.id
 
-        val restReq = RestaurantRegisterRequest(name = "Sushi Spot", address = "1 Ocean Ave", cuisine = "Japanese")
-        val restRes = restTemplate.postForEntity(url("/api/restaurants"), restReq, RestaurantResponse::class.java)
+        val restReq = RestaurantRegisterRequest(
+            name = "Sushi Spot",
+            address = "1 Ocean Ave",
+            cuisine = "Japanese"
+        )
+        val restRes = restTemplate.postForEntity(
+            url("/api/restaurants"),
+            restReq,
+            RestaurantResponse::class.java
+        )
         assertEquals(HttpStatus.CREATED, restRes.statusCode)
         val restaurantId: UUID = restRes.body!!.id
 
@@ -62,7 +70,11 @@ class OrderControllerIntegrationTest {
         assertEquals(userId, createdOrder.userId)
 
         val patchReq = UpdateOrderStatusRequest(status = OrderStatus.PENDING)
-        val updated = restTemplate.patchForObject(url("/api/orders/${createdOrder.id}/status"), patchReq, OrderResponse::class.java)!!
+        val updated = restTemplate.patchForObject(
+            url("/api/orders/${createdOrder.id}/status"),
+            patchReq,
+            OrderResponse::class.java
+        )!!
         assertEquals(OrderStatus.PENDING, updated.status)
 
         val myOrdersResponse = restTemplate.exchange(
