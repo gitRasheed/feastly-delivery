@@ -4,6 +4,8 @@ plugins {
 	id("org.springframework.boot") version "3.4.7"
 	id("io.spring.dependency-management") version "1.1.7"
 	kotlin("plugin.jpa") version "2.0.21"
+	id("io.gitlab.arturbosch.detekt") version "1.23.8"
+	id("com.github.spotbugs") version "6.0.26"
 }
 
 group = "com.example.feastly"
@@ -54,4 +56,15 @@ allOpen {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+// Detekt: report issues but don't fail build (prototype phase)
+detekt {
+	ignoreFailures = true
+}
+
+// SpotBugs: report issues but don't fail build (prototype phase)
+spotbugs {
+	ignoreFailures = true
+	excludeFilter.set(file("spotbugs-exclude.xml"))
 }
