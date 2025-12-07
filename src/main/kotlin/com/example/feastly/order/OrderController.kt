@@ -11,9 +11,20 @@ import java.util.UUID
 class OrderController(
     private val service: OrderService
 ) {
+    companion object {
+        const val USER_ID_HEADER = "X-USER-ID"
+    }
+
+    @GetMapping
+    fun getMyOrders(@RequestHeader(USER_ID_HEADER) userId: UUID): List<OrderResponse> =
+        service.getOrdersForUser(userId).map { it.toResponse() }
+
     @PostMapping
-    fun create(@Valid @RequestBody request: CreateOrderRequest): ResponseEntity<OrderResponse> {
-        val saved = service.create(request)
+    fun create(
+        @RequestHeader(USER_ID_HEADER) userId: UUID,
+        @Valid @RequestBody request: CreateOrderRequest
+    ): ResponseEntity<OrderResponse> {
+        val saved = service.create(userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(saved.toResponse())
     }
 
@@ -30,4 +41,3 @@ class OrderController(
     fun byUser(@PathVariable userId: UUID): List<OrderResponse> =
         service.listByUser(userId).map { it.toResponse() }
 }
-

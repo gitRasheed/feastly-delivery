@@ -1,7 +1,11 @@
 package com.example.feastly.order
 
+import com.example.feastly.common.OrderNotFoundException
+import com.example.feastly.common.RestaurantNotFoundException
+import com.example.feastly.common.UserNotFoundException
 import com.example.feastly.restaurant.RestaurantRepository
 import com.example.feastly.user.UserRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -15,12 +19,12 @@ class OrderService(
     private val restaurantRepository: RestaurantRepository
 ) {
 
-    fun create(request: CreateOrderRequest): DeliveryOrder {
-        val user = userRepository.findById(request.userId)
-            .orElseThrow { IllegalArgumentException("User not found: ${request.userId}") }
+    fun create(userId: UUID, request: CreateOrderRequest): DeliveryOrder {
+        val user = userRepository.findByIdOrNull(userId)
+            ?: throw UserNotFoundException(userId)
 
-        val restaurant = restaurantRepository.findById(request.restaurantId)
-            .orElseThrow { IllegalArgumentException("Restaurant not found: ${request.restaurantId}") }
+        val restaurant = restaurantRepository.findByIdOrNull(request.restaurantId)
+            ?: throw RestaurantNotFoundException(request.restaurantId)
 
         val order = DeliveryOrder(
             user = user,
@@ -33,13 +37,22 @@ class OrderService(
     }
 
     fun updateStatus(orderId: UUID, newStatus: OrderStatus): DeliveryOrder {
-        val order = orderRepository.findById(orderId)
-            .orElseThrow { IllegalArgumentException("Order not found: $orderId") }
+        val order = orderRepository.findByIdOrNull(orderId)
+            ?: throw OrderNotFoundException(orderId)
 
         order.status = newStatus
         order.updatedAt = Instant.now()
 
         return orderRepository.save(order)
+    }
+
+    @Transactional(readOnly = true)
+    fun getOrdersForUser(userId: UUID): List<DeliveryOrder> {
+        // Verify user exists
+        if (!userRepository.existsById(userId)) {
+            throw UserNotFoundException(userId)
+        }
+        return orderRepository.findByUser_Id(userId)
     }
 
     @Transactional(readOnly = true)

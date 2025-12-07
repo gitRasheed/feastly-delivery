@@ -7,7 +7,6 @@ import java.util.UUID
 // Requests
 
 data class CreateOrderRequest(
-    @field:NotNull val userId: UUID,
     @field:NotNull val restaurantId: UUID,
     val driverId: UUID? = null,
 )
