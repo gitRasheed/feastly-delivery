@@ -32,3 +32,17 @@ fun DeliveryOrder.toResponse() = OrderResponse(
     createdAt = this.createdAt,
     updatedAt = this.updatedAt,
 )
+
+data class OrderHistoryResponse(
+    val orderId: UUID,
+    val totalCents: Int?,
+    val restaurantName: String,
+    val status: OrderStatus
+)
+
+fun DeliveryOrder.toHistoryResponse() = OrderHistoryResponse(
+    orderId = this.id,
+    totalCents = null,
+    restaurantName = this.restaurant.name,
+    status = this.status
+)

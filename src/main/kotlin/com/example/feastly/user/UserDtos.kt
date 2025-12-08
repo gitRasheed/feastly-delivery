@@ -20,5 +20,17 @@ data class UserResponse(
     val email: String
 )
 
+// Request DTO for saving delivery address
+data class AddressRequest(
+    @field:NotBlank(message = "line1 is required")
+    val line1: String,
+
+    @field:NotBlank(message = "city is required")
+    val city: String,
+
+    @field:NotBlank(message = "postcode is required")
+    val postcode: String
+)
+
 // Mapper
 fun User.toResponse() = UserResponse(id = this.id, email = this.email)
