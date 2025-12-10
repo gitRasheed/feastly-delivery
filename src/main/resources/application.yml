@@ -2,7 +2,7 @@ spring:
   application:
     name: feastly-delivery-app
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/fooddelivery}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/feastly}
     username: ${SPRING_DATASOURCE_USERNAME:admin}
     password: ${SPRING_DATASOURCE_PASSWORD:admin}
   jpa:
