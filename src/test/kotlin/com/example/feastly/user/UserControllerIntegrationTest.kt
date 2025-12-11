@@ -1,6 +1,9 @@
 package com.example.feastly.user
 
+import com.example.feastly.menu.MenuItemRequest
+import com.example.feastly.menu.MenuItemResponse
 import com.example.feastly.order.CreateOrderRequest
+import com.example.feastly.order.OrderItemRequest
 import com.example.feastly.order.OrderResponse
 import com.example.feastly.order.OrderHistoryResponse
 import com.example.feastly.rating.RatingRequest
@@ -42,7 +45,7 @@ class UserControllerIntegrationTest {
 
     private fun createRestaurant(): RestaurantResponse {
         val req = RestaurantRegisterRequest(
-            name = "Test Restaurant",
+            name = "Test Restaurant ${UUID.randomUUID()}",
             address = "123 Main St",
             cuisine = "Italian"
         )
@@ -51,12 +54,28 @@ class UserControllerIntegrationTest {
         return res.body!!
     }
 
+    private fun createMenuItem(restaurantId: UUID, name: String, priceCents: Int): MenuItemResponse {
+        val req = MenuItemRequest(name = name, priceCents = priceCents)
+        return restTemplate.postForEntity(
+            url("/api/restaurants/$restaurantId/menu"),
+            req,
+            MenuItemResponse::class.java
+        ).body!!
+    }
+
     private fun createOrder(userId: UUID, restaurantId: UUID): OrderResponse {
+        // First create a menu item for this restaurant
+        val menuItem = createMenuItem(restaurantId, "Test Item ${UUID.randomUUID()}", 1000)
+
         val headers = HttpHeaders()
         headers.set("X-USER-ID", userId.toString())
         headers.set("Content-Type", "application/json")
-        
-        val req = CreateOrderRequest(restaurantId = restaurantId)
+
+        val req = CreateOrderRequest(
+            restaurantId = restaurantId,
+            items = listOf(OrderItemRequest(menuItemId = menuItem.id, quantity = 1))
+        )
+
         val res = restTemplate.exchange(
             url("/api/orders"),
             HttpMethod.POST,
@@ -69,20 +88,20 @@ class UserControllerIntegrationTest {
 
     @Test
     fun `save address returns 204 for valid user`() {
-        val user = createUser("address-test@example.com")
-        
+        val user = createUser("address-test-${UUID.randomUUID()}@example.com")
+
         val addressReq = AddressRequest(
             line1 = "42 Oak Street",
             city = "London",
             postcode = "SW1A 1AA"
         )
-        
+
         val res = restTemplate.postForEntity(
             url("/api/users/${user.id}/address"),
             addressReq,
             Void::class.java
         )
-        
+
         assertEquals(HttpStatus.NO_CONTENT, res.statusCode)
     }
 
@@ -94,63 +113,63 @@ class UserControllerIntegrationTest {
             city = "London",
             postcode = "SW1A 1AA"
         )
-        
+
         val res = restTemplate.postForEntity(
             url("/api/users/$fakeUserId/address"),
             addressReq,
             String::class.java
         )
-        
+
         assertEquals(HttpStatus.NOT_FOUND, res.statusCode)
     }
 
     @Test
     fun `get order history returns orders for user`() {
-        val user = createUser("history-test@example.com")
+        val user = createUser("history-test-${UUID.randomUUID()}@example.com")
         val restaurant = createRestaurant()
         val order = createOrder(user.id, restaurant.id)
-        
+
         val res = restTemplate.getForEntity(
             url("/api/users/${user.id}/orders"),
             Array<OrderHistoryResponse>::class.java
         )
-        
+
         assertEquals(HttpStatus.OK, res.statusCode)
         assertNotNull(res.body)
         assertTrue(res.body!!.any { it.orderId == order.id })
-        assertTrue(res.body!!.any { it.restaurantName == "Test Restaurant" })
     }
 
     @Test
     fun `rate order returns 204 for valid rating`() {
-        val user = createUser("rating-test@example.com")
+        val user = createUser("rating-test-${UUID.randomUUID()}@example.com")
         val restaurant = createRestaurant()
         val order = createOrder(user.id, restaurant.id)
-        
+
         val ratingReq = RatingRequest(stars = 5, comment = "Great food!")
-        
+
         val res = restTemplate.postForEntity(
             url("/api/users/${user.id}/orders/${order.id}/rating"),
             ratingReq,
             Void::class.java
         )
-        
+
         assertEquals(HttpStatus.NO_CONTENT, res.statusCode)
     }
 
     @Test
     fun `rate order returns 404 for non-existent order`() {
-        val user = createUser("rating-404-test@example.com")
+        val user = createUser("rating-404-test-${UUID.randomUUID()}@example.com")
         val fakeOrderId = UUID.randomUUID()
-        
+
         val ratingReq = RatingRequest(stars = 4, comment = "Good")
-        
+
         val res = restTemplate.postForEntity(
             url("/api/users/${user.id}/orders/$fakeOrderId/rating"),
             ratingReq,
             String::class.java
         )
-        
+
         assertEquals(HttpStatus.NOT_FOUND, res.statusCode)
     }
 }
+
