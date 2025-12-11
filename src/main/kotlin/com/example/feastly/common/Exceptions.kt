@@ -34,3 +34,5 @@ class OrderAlreadyDeliveredException(orderId: UUID) :
 class InvalidDeliveryStateException(orderId: UUID, status: OrderStatus) :
     IllegalStateException("Order $orderId is not in DISPATCHED state, current: $status")
 
+class MenuItemUnavailableException(itemId: UUID) :
+    IllegalStateException("Menu item $itemId is unavailable")

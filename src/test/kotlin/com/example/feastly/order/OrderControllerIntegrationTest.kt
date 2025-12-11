@@ -602,4 +602,38 @@ class OrderControllerIntegrationTest {
 
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
     }
+
+    // ========== Menu Item Availability Tests ==========
+
+    @Test
+    fun `ordering unavailable menu item returns 409`() {
+        val user = createUser("unavailable-test-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Unavailable Test Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Sold Out Dish", 1500)
+
+        // Mark item unavailable
+        restTemplate.exchange(
+            url("/api/restaurants/${restaurant.id}/menu/${menuItem.id}/availability?available=false"),
+            HttpMethod.PATCH,
+            HttpEntity.EMPTY,
+            Void::class.java
+        )
+
+        // Try to order it
+        val orderRequest = CreateOrderRequest(
+            restaurantId = restaurant.id,
+            items = listOf(OrderItemRequest(menuItemId = menuItem.id, quantity = 1))
+        )
+
+        val response = restTemplate.exchange(
+            url("/api/orders"),
+            HttpMethod.POST,
+            HttpEntity(orderRequest, headersWithUser(user.id)),
+            String::class.java
+        )
+
+        assertEquals(HttpStatus.CONFLICT, response.statusCode)
+        assertTrue(response.body!!.contains("unavailable"))
+    }
 }
+

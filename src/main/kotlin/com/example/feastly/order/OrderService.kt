@@ -4,6 +4,7 @@ import com.example.feastly.common.DriverAlreadyAssignedException
 import com.example.feastly.common.InvalidDeliveryStateException
 import com.example.feastly.common.InvalidOrderStateForDispatchException
 import com.example.feastly.common.MenuItemNotFoundException
+import com.example.feastly.common.MenuItemUnavailableException
 import com.example.feastly.common.OrderAlreadyDeliveredException
 import com.example.feastly.common.OrderAlreadyFinalizedException
 import com.example.feastly.common.OrderNotFoundException
@@ -43,6 +44,10 @@ class OrderService(
 
             require(menuItem.restaurant.id == request.restaurantId) {
                 "Menu item ${menuItem.id} does not belong to restaurant ${request.restaurantId}"
+            }
+
+            if (!menuItem.available) {
+                throw MenuItemUnavailableException(menuItem.id)
             }
 
             menuItem to itemRequest.quantity

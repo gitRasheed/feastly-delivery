@@ -82,4 +82,10 @@ class GlobalExceptionHandler {
     fun handleInvalidDeliveryState(ex: InvalidDeliveryStateException): ResponseEntity<ErrorResponse> =
         ResponseEntity.status(HttpStatus.CONFLICT)
             .body(ErrorResponse(error = ex.message ?: "Invalid delivery state"))
+
+    @ExceptionHandler(MenuItemUnavailableException::class)
+    fun handleMenuItemUnavailable(ex: MenuItemUnavailableException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ErrorResponse(error = ex.message ?: "Menu item unavailable"))
 }
+

@@ -2,6 +2,7 @@ package com.example.feastly.menu
 
 import com.example.feastly.common.MenuItemNotFoundException
 import com.example.feastly.common.RestaurantNotFoundException
+import com.example.feastly.common.UnauthorizedRestaurantAccessException
 import com.example.feastly.restaurant.RestaurantRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -54,6 +55,18 @@ class MenuItemService(
         menuItemRepository.delete(menuItem)
     }
 
+    fun updateAvailability(restaurantId: UUID, itemId: UUID, available: Boolean): MenuItem {
+        val menuItem = menuItemRepository.findByIdOrNull(itemId)
+            ?: throw MenuItemNotFoundException(itemId)
+
+        if (menuItem.restaurant.id != restaurantId) {
+            throw UnauthorizedRestaurantAccessException(restaurantId)
+        }
+
+        menuItem.available = available
+        return menuItemRepository.save(menuItem)
+    }
+
     @Transactional(readOnly = true)
     fun getMenuByRestaurant(restaurantId: UUID): List<MenuItem> {
         if (!restaurantRepository.existsById(restaurantId)) {
@@ -62,3 +75,4 @@ class MenuItemService(
         return menuItemRepository.findByRestaurantId(restaurantId)
     }
 }
+

@@ -18,6 +18,10 @@ data class MenuItemRequest(
     val available: Boolean = true
 )
 
+data class MenuItemAvailabilityUpdateRequest(
+    val isAvailable: Boolean
+)
+
 data class MenuItemResponse(
     val id: UUID,
     val restaurantId: UUID,
@@ -35,3 +39,4 @@ fun MenuItem.toResponse() = MenuItemResponse(
     priceCents = this.priceCents,
     available = this.available
 )
+

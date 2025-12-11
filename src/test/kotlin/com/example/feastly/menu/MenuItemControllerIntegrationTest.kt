@@ -148,4 +148,73 @@ class MenuItemControllerIntegrationTest {
 
         assertEquals(HttpStatus.NOT_FOUND, res.statusCode)
     }
+
+    // ========== Availability Tests ==========
+
+    @Test
+    fun `mark item unavailable and verify GET shows flag`() {
+        // Create item
+        val req = MenuItemRequest(name = "Pizza Special", priceCents = 1599, available = true)
+        val created = restTemplate.postForEntity(
+            url("/api/restaurants/$restaurantId/menu"),
+            req,
+            MenuItemResponse::class.java
+        ).body!!
+        assertTrue(created.available)
+
+        // Mark unavailable
+        val patchRes = restTemplate.exchange(
+            url("/api/restaurants/$restaurantId/menu/${created.id}/availability?available=false"),
+            HttpMethod.PATCH,
+            HttpEntity.EMPTY,
+            Void::class.java
+        )
+        assertEquals(HttpStatus.NO_CONTENT, patchRes.statusCode)
+
+        // Verify GET shows unavailable
+        val menu = restTemplate.exchange(
+            url("/api/restaurants/$restaurantId/menu"),
+            HttpMethod.GET,
+            HttpEntity.EMPTY,
+            Array<MenuItemResponse>::class.java
+        ).body!!
+
+        val item = menu.find { it.id == created.id }
+        assertNotNull(item)
+        assertEquals(false, item!!.available)
+    }
+
+    @Test
+    fun `wrong restaurant cannot toggle another restaurants item`() {
+        // Create item for restaurant 1
+        val req = MenuItemRequest(name = "Exclusive Dish", priceCents = 2500)
+        val created = restTemplate.postForEntity(
+            url("/api/restaurants/$restaurantId/menu"),
+            req,
+            MenuItemResponse::class.java
+        ).body!!
+
+        // Create another restaurant
+        val restaurant2Req = RestaurantRegisterRequest(
+            name = "Other Restaurant ${UUID.randomUUID()}",
+            address = "456 Other St",
+            cuisine = "French"
+        )
+        val restaurant2 = restTemplate.postForEntity(
+            url("/api/restaurants"),
+            restaurant2Req,
+            RestaurantResponse::class.java
+        ).body!!
+
+        // Restaurant 2 tries to toggle restaurant 1's item
+        val res = restTemplate.exchange(
+            url("/api/restaurants/${restaurant2.id}/menu/${created.id}/availability?available=false"),
+            HttpMethod.PATCH,
+            HttpEntity.EMPTY,
+            String::class.java
+        )
+
+        assertEquals(HttpStatus.FORBIDDEN, res.statusCode)
+    }
 }
+
