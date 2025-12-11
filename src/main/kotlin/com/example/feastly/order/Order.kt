@@ -27,7 +27,6 @@ enum class OrderStatus {
 
 @Entity
 @Table(name = "orders")
-@Suppress("LongParameterList")
 class DeliveryOrder(
     @Id val id: UUID = UUID.randomUUID(),
 
