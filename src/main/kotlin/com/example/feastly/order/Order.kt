@@ -17,9 +17,10 @@ import java.time.Instant
 import java.util.UUID
 
 enum class OrderStatus {
-    AWAITING_RESTAURANT,
-    PENDING,
-    OUT_FOR_DELIVERY,
+    SUBMITTED,
+    ACCEPTED,
+    PREPARING,
+    DISPATCHED,
     DELIVERED,
     CANCELLED
 }
@@ -39,11 +40,11 @@ class DeliveryOrder(
     val restaurant: Restaurant,
 
     @Column(name = "driver_id")
-    val driverId: UUID? = null,
+    var driverId: UUID? = null,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    var status: OrderStatus = OrderStatus.AWAITING_RESTAURANT,
+    var status: OrderStatus = OrderStatus.SUBMITTED,
 
     @Column(name = "total_cents")
     val totalCents: Int? = null,
