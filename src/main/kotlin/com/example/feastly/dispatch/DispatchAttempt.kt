@@ -13,7 +13,8 @@ enum class DispatchAttemptStatus {
     PENDING,
     ACCEPTED,
     REJECTED,
-    EXPIRED
+    EXPIRED,
+    CANCELLED
 }
 
 @Entity

@@ -48,4 +48,18 @@ class DispatchController(
         dispatchService.expireStaleOffers(orderId)
         return ResponseEntity.ok().build()
     }
+
+    @PostMapping("/orders/{orderId}/driver-cancel")
+    fun cancelAssignment(
+        @PathVariable orderId: UUID,
+        @RequestParam driverId: UUID
+    ): ResponseEntity<Void> {
+        val success = dispatchService.driverCancelAssignment(orderId, driverId)
+        return if (success) {
+            ResponseEntity.ok().build()
+        } else {
+            ResponseEntity.badRequest().build()
+        }
+    }
 }
+

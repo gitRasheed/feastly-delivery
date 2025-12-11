@@ -51,9 +51,13 @@ class DispatchService(
             return null
         }
 
-        // Get drivers who already rejected/expired for this order
+        // Get drivers who already rejected/expired/cancelled for this order
         val excludedDriverIds = dispatchAttemptRepository.findByOrderId(orderId)
-            .filter { it.status in listOf(DispatchAttemptStatus.REJECTED, DispatchAttemptStatus.EXPIRED) }
+            .filter { it.status in listOf(
+                DispatchAttemptStatus.REJECTED,
+                DispatchAttemptStatus.EXPIRED,
+                DispatchAttemptStatus.CANCELLED
+            ) }
             .map { it.driverId }
             .toSet()
 
@@ -167,6 +171,47 @@ class DispatchService(
     }
 
     /**
+     * Driver cancels their accepted assignment.
+     * Unassigns driver, resets order to ACCEPTED, and triggers re-dispatch.
+     */
+    fun driverCancelAssignment(orderId: UUID, driverId: UUID): Boolean {
+        val order = orderRepository.findByIdOrNull(orderId)
+            ?: throw OrderNotFoundException(orderId)
+
+        // Preconditions
+        if (order.driverId != driverId) {
+            logger.warn("Driver $driverId is not assigned to order $orderId")
+            return false
+        }
+
+        if (order.status !in listOf(OrderStatus.ACCEPTED, OrderStatus.DISPATCHED)) {
+            logger.warn("Cannot cancel order $orderId - invalid status: ${order.status}")
+            return false
+        }
+
+        // Find and update the dispatch attempt
+        val attempt = dispatchAttemptRepository.findByOrderIdAndDriverId(orderId, driverId)
+        if (attempt != null && attempt.status == DispatchAttemptStatus.ACCEPTED) {
+            attempt.status = DispatchAttemptStatus.CANCELLED
+            attempt.respondedAt = Instant.now()
+            dispatchAttemptRepository.save(attempt)
+        }
+
+        // Reset order
+        order.driverId = null
+        order.status = OrderStatus.ACCEPTED
+        order.updatedAt = Instant.now()
+        orderRepository.save(order)
+
+        logger.info("Driver $driverId cancelled assignment for order $orderId")
+
+        // Trigger re-dispatch
+        startDispatch(orderId)
+
+        return true
+    }
+
+    /**
      * Euclidean distance placeholder for driver matching.
      * In production, use Haversine formula for actual geo distance.
      */
@@ -174,3 +219,4 @@ class DispatchService(
         return sqrt((lat2 - lat1).pow(2) + (lng2 - lng1).pow(2))
     }
 }
+
