@@ -212,6 +212,44 @@ class DispatchService(
     }
 
     /**
+     * Expire all pending offers older than 2 minutes globally.
+     * Returns the count of expired offers.
+     */
+    fun expirePendingOffers(): Int {
+        val cutoff = Instant.now().minusSeconds(120)
+        val staleOffers = dispatchAttemptRepository.findByStatusAndOfferedAtBefore(
+            DispatchAttemptStatus.PENDING,
+            cutoff
+        )
+
+        if (staleOffers.isEmpty()) {
+            logger.info("No stale offers to expire")
+            return 0
+        }
+
+        // Group by orderId to avoid duplicate re-dispatch calls
+        val orderIds = staleOffers.map { it.orderId }.toSet()
+
+        staleOffers.forEach { offer ->
+            offer.status = DispatchAttemptStatus.EXPIRED
+            offer.respondedAt = Instant.now()
+            dispatchAttemptRepository.save(offer)
+            logger.info("Expired stale offer for order ${offer.orderId} to driver ${offer.driverId}")
+        }
+
+        // Re-dispatch for each affected order
+        orderIds.forEach { orderId ->
+            val order = orderRepository.findByIdOrNull(orderId)
+            if (order != null && order.status == OrderStatus.ACCEPTED && order.driverId == null) {
+                startDispatch(orderId)
+            }
+        }
+
+        logger.info("Expired ${staleOffers.size} stale offers across ${orderIds.size} orders")
+        return staleOffers.size
+    }
+
+    /**
      * Euclidean distance placeholder for driver matching.
      * In production, use Haversine formula for actual geo distance.
      */
@@ -219,4 +257,3 @@ class DispatchService(
         return sqrt((lat2 - lat1).pow(2) + (lng2 - lng1).pow(2))
     }
 }
-

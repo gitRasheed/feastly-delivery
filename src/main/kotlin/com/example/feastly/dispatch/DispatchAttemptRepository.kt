@@ -1,6 +1,7 @@
 package com.example.feastly.dispatch
 
 import org.springframework.data.jpa.repository.JpaRepository
+import java.time.Instant
 import java.util.UUID
 
 interface DispatchAttemptRepository : JpaRepository<DispatchAttempt, UUID> {
@@ -15,4 +16,10 @@ interface DispatchAttemptRepository : JpaRepository<DispatchAttempt, UUID> {
         driverId: UUID,
         statuses: List<DispatchAttemptStatus>
     ): Boolean
+
+    fun findByStatusAndOfferedAtBefore(
+        status: DispatchAttemptStatus,
+        cutoff: Instant
+    ): List<DispatchAttempt>
 }
+

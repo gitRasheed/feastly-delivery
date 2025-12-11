@@ -61,5 +61,10 @@ class DispatchController(
             ResponseEntity.badRequest().build()
         }
     }
-}
 
+    @PostMapping("/dispatch/expire-pending")
+    fun expireAllPending(): ResponseEntity<Map<String, Int>> {
+        val count = dispatchService.expirePendingOffers()
+        return ResponseEntity.ok(mapOf("expiredCount" to count))
+    }
+}
