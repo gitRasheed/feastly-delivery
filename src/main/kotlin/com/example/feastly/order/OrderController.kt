@@ -10,11 +10,12 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/api")
 class OrderController(
     private val service: OrderService
 ) {
@@ -22,11 +23,11 @@ class OrderController(
         const val USER_ID_HEADER = "X-USER-ID"
     }
 
-    @GetMapping
+    @GetMapping("/orders")
     fun getMyOrders(@RequestHeader(USER_ID_HEADER) userId: UUID): List<OrderResponse> =
         service.getOrdersForUser(userId).map { it.toResponse() }
 
-    @PostMapping
+    @PostMapping("/orders")
     fun create(
         @RequestHeader(USER_ID_HEADER) userId: UUID,
         @Valid @RequestBody request: CreateOrderRequest
@@ -35,7 +36,7 @@ class OrderController(
         return ResponseEntity.status(HttpStatus.CREATED).body(saved.toResponse())
     }
 
-    @PatchMapping("/{id}/status")
+    @PatchMapping("/orders/{id}/status")
     fun updateStatus(
         @PathVariable id: UUID,
         @Valid @RequestBody request: UpdateOrderStatusRequest
@@ -43,4 +44,50 @@ class OrderController(
         val updated = service.updateStatus(id, request.status)
         return updated.toResponse()
     }
+
+    @PatchMapping("/restaurants/{restaurantId}/orders/{orderId}/accept")
+    fun acceptOrder(
+        @PathVariable restaurantId: UUID,
+        @PathVariable orderId: UUID
+    ): ResponseEntity<OrderResponse> {
+        val updated = service.acceptOrder(restaurantId, orderId)
+        return ResponseEntity.ok(updated.toResponse())
+    }
+
+    @PatchMapping("/restaurants/{restaurantId}/orders/{orderId}/reject")
+    fun rejectOrder(
+        @PathVariable restaurantId: UUID,
+        @PathVariable orderId: UUID
+    ): ResponseEntity<OrderResponse> {
+        val updated = service.rejectOrder(restaurantId, orderId)
+        return ResponseEntity.ok(updated.toResponse())
+    }
+
+    @PatchMapping("/orders/{orderId}/assign-driver")
+    fun assignDriver(
+        @PathVariable orderId: UUID,
+        @RequestParam driverId: UUID
+    ): ResponseEntity<OrderResponse> {
+        val updated = service.assignDriver(orderId, driverId)
+        return ResponseEntity.ok(updated.toResponse())
+    }
+
+    @PatchMapping("/orders/{orderId}/pickup")
+    fun confirmPickup(
+        @PathVariable orderId: UUID,
+        @RequestParam driverId: UUID
+    ): ResponseEntity<OrderResponse> {
+        val updated = service.confirmPickup(orderId, driverId)
+        return ResponseEntity.ok(updated.toResponse())
+    }
+
+    @PatchMapping("/orders/{orderId}/deliver")
+    fun confirmDelivery(
+        @PathVariable orderId: UUID,
+        @RequestParam driverId: UUID
+    ): ResponseEntity<OrderResponse> {
+        val updated = service.confirmDelivery(orderId, driverId)
+        return ResponseEntity.ok(updated.toResponse())
+    }
 }
+
