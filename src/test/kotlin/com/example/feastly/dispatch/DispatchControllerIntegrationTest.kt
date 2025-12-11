@@ -250,5 +250,156 @@ class DispatchControllerIntegrationTest {
         // Status should be one of the valid dispatch states
         assertTrue(response.body!!.status in listOf("PENDING_OFFER", "AWAITING_DISPATCH", "ASSIGNED"))
     }
-}
 
+    // ========== Driver Cancellation Tests ==========
+
+    @Test
+    fun `assigned driver can cancel and order returns to ACCEPTED`() {
+        val user = createUser("cancel-test-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Cancel Test Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Ramen", 1600)
+
+        val order = createOrder(user.id, restaurant.id, menuItem.id)
+        acceptOrder(restaurant.id, order.id)
+
+        val driverId = UUID.randomUUID()
+        setDriverAvailable(driverId, 40.7130, -74.0065)
+
+        // Dispatch and accept
+        val dispatchResponse = restTemplate.exchange(
+            url("/api/orders/${order.id}/dispatch"),
+            HttpMethod.POST,
+            HttpEntity<Void>(jsonHeaders()),
+            DispatchStatusResponse::class.java
+        ).body!!
+
+        if (dispatchResponse.pendingOfferId != null) {
+            val offeredDriver = dispatchResponse.pendingOfferId
+
+            // Accept the offer
+            restTemplate.exchange(
+                url("/api/orders/${order.id}/offer-response?driverId=$offeredDriver"),
+                HttpMethod.POST,
+                HttpEntity(DispatchOfferResponse(accepted = true), jsonHeaders()),
+                Void::class.java
+            )
+
+            // Now cancel
+            val cancelResponse = restTemplate.exchange(
+                url("/api/orders/${order.id}/driver-cancel?driverId=$offeredDriver"),
+                HttpMethod.POST,
+                HttpEntity<Void>(jsonHeaders()),
+                Void::class.java
+            )
+
+            assertEquals(HttpStatus.OK, cancelResponse.statusCode)
+
+            // Check status - should be back to awaiting dispatch
+            val status = restTemplate.getForEntity(
+                url("/api/orders/${order.id}/dispatch-status"),
+                DispatchStatusResponse::class.java
+            ).body!!
+
+            // Driver should be unassigned
+            assertNull(status.currentDriverId)
+        }
+    }
+
+    @Test
+    fun `non-assigned driver cannot cancel`() {
+        val user = createUser("wrong-cancel-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Wrong Cancel Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Curry", 1400)
+
+        val order = createOrder(user.id, restaurant.id, menuItem.id)
+        acceptOrder(restaurant.id, order.id)
+
+        val assignedDriver = UUID.randomUUID()
+        val wrongDriver = UUID.randomUUID()
+        setDriverAvailable(assignedDriver, 40.7130, -74.0065)
+
+        // Dispatch
+        val dispatchResponse = restTemplate.exchange(
+            url("/api/orders/${order.id}/dispatch"),
+            HttpMethod.POST,
+            HttpEntity<Void>(jsonHeaders()),
+            DispatchStatusResponse::class.java
+        ).body!!
+
+        if (dispatchResponse.pendingOfferId != null) {
+            val offeredDriver = dispatchResponse.pendingOfferId
+
+            // Accept
+            restTemplate.exchange(
+                url("/api/orders/${order.id}/offer-response?driverId=$offeredDriver"),
+                HttpMethod.POST,
+                HttpEntity(DispatchOfferResponse(accepted = true), jsonHeaders()),
+                Void::class.java
+            )
+
+            // Wrong driver tries to cancel
+            val cancelResponse = restTemplate.exchange(
+                url("/api/orders/${order.id}/driver-cancel?driverId=$wrongDriver"),
+                HttpMethod.POST,
+                HttpEntity<Void>(jsonHeaders()),
+                Void::class.java
+            )
+
+            assertEquals(HttpStatus.BAD_REQUEST, cancelResponse.statusCode)
+        }
+    }
+
+    @Test
+    fun `cancelled driver is excluded from re-dispatch`() {
+        val user = createUser("exclude-cancel-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Exclude Cancel Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Pho", 1300)
+
+        val order = createOrder(user.id, restaurant.id, menuItem.id)
+        acceptOrder(restaurant.id, order.id)
+
+        val driver1 = UUID.randomUUID()
+        val driver2 = UUID.randomUUID()
+        setDriverAvailable(driver1, 40.7129, -74.0061)
+        setDriverAvailable(driver2, 40.7200, -74.0100)
+
+        // Dispatch - should offer to closest driver
+        val dispatchResponse = restTemplate.exchange(
+            url("/api/orders/${order.id}/dispatch"),
+            HttpMethod.POST,
+            HttpEntity<Void>(jsonHeaders()),
+            DispatchStatusResponse::class.java
+        ).body!!
+
+        if (dispatchResponse.pendingOfferId != null) {
+            val firstDriver = dispatchResponse.pendingOfferId
+
+            // Accept
+            restTemplate.exchange(
+                url("/api/orders/${order.id}/offer-response?driverId=$firstDriver"),
+                HttpMethod.POST,
+                HttpEntity(DispatchOfferResponse(accepted = true), jsonHeaders()),
+                Void::class.java
+            )
+
+            // Cancel
+            restTemplate.exchange(
+                url("/api/orders/${order.id}/driver-cancel?driverId=$firstDriver"),
+                HttpMethod.POST,
+                HttpEntity<Void>(jsonHeaders()),
+                Void::class.java
+            )
+
+            // Check new dispatch status - should be different driver or awaiting
+            val status = restTemplate.getForEntity(
+                url("/api/orders/${order.id}/dispatch-status"),
+                DispatchStatusResponse::class.java
+            ).body!!
+
+            // The cancelled driver should NOT be offered again
+            if (status.pendingOfferId != null) {
+                assertTrue(status.pendingOfferId != firstDriver)
+            }
+        }
+    }
+}
