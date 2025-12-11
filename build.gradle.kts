@@ -59,8 +59,9 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 }
 
-// Detekt: report issues but don't fail build (prototype phase)
+// Detekt: use project config, report issues but don't fail build
 detekt {
+	config.setFrom(file("detekt.yml"))
 	ignoreFailures = true
 }
 
