@@ -402,4 +402,91 @@ class DispatchControllerIntegrationTest {
             }
         }
     }
+
+    // ========== Offer Timeout Tests ==========
+
+    @Test
+    fun `expire-pending endpoint returns successfully`() {
+        // This test verifies the endpoint works without errors
+        val response = restTemplate.exchange(
+            url("/api/dispatch/expire-pending"),
+            HttpMethod.POST,
+            HttpEntity<Void>(jsonHeaders()),
+            Map::class.java
+        )
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertNotNull(response.body)
+        assertTrue(response.body!!.containsKey("expiredCount"))
+    }
+
+    @Test
+    fun `recent pending offers are not expired`() {
+        val user = createUser("recent-offer-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Recent Offer Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Soup", 900)
+
+        val order = createOrder(user.id, restaurant.id, menuItem.id)
+        acceptOrder(restaurant.id, order.id)
+
+        val driverId = UUID.randomUUID()
+        setDriverAvailable(driverId, 40.7130, -74.0065)
+
+        // Dispatch - creates a fresh pending offer
+        restTemplate.exchange(
+            url("/api/orders/${order.id}/dispatch"),
+            HttpMethod.POST,
+            HttpEntity<Void>(jsonHeaders()),
+            DispatchStatusResponse::class.java
+        )
+
+        // Immediately call expire-pending - should NOT expire the fresh offer
+        restTemplate.exchange(
+            url("/api/dispatch/expire-pending"),
+            HttpMethod.POST,
+            HttpEntity<Void>(jsonHeaders()),
+            Map::class.java
+        )
+
+        // Check status - offer should still be pending
+        val status = restTemplate.getForEntity(
+            url("/api/orders/${order.id}/dispatch-status"),
+            DispatchStatusResponse::class.java
+        ).body!!
+
+        // The fresh offer should still be there (not expired because it's < 2 minutes old)
+        assertTrue(status.status in listOf("PENDING_OFFER", "ASSIGNED"))
+    }
+
+    @Test
+    fun `per-order expire endpoint works for specific order`() {
+        val user = createUser("per-order-expire-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Per Order Expire Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Noodles", 1100)
+
+        val order = createOrder(user.id, restaurant.id, menuItem.id)
+        acceptOrder(restaurant.id, order.id)
+
+        val driverId = UUID.randomUUID()
+        setDriverAvailable(driverId, 40.7130, -74.0065)
+
+        // Dispatch
+        restTemplate.exchange(
+            url("/api/orders/${order.id}/dispatch"),
+            HttpMethod.POST,
+            HttpEntity<Void>(jsonHeaders()),
+            DispatchStatusResponse::class.java
+        )
+
+        // Call per-order expire endpoint
+        val response = restTemplate.exchange(
+            url("/api/orders/${order.id}/expire-offers"),
+            HttpMethod.POST,
+            HttpEntity<Void>(jsonHeaders()),
+            Void::class.java
+        )
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+    }
 }
+
