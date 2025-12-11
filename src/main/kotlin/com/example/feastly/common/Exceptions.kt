@@ -9,3 +9,5 @@ class UserNotFoundException(userId: UUID) : NotFoundException("User not found: $
 class RestaurantNotFoundException(restaurantId: UUID) : NotFoundException("Restaurant not found: $restaurantId")
 
 class OrderNotFoundException(orderId: UUID) : NotFoundException("Order not found: $orderId")
+
+class MenuItemNotFoundException(menuItemId: UUID) : NotFoundException("Menu item not found: $menuItemId")

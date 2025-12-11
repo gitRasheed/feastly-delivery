@@ -1,16 +1,45 @@
 package com.example.feastly.order
 
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
 import java.time.Instant
 import java.util.UUID
 
+// Request DTOs
+data class OrderItemRequest(
+    @field:NotNull(message = "menuItemId is required")
+    val menuItemId: UUID,
+
+    @field:NotNull(message = "quantity is required")
+    @field:Min(value = 1, message = "quantity must be at least 1")
+    val quantity: Int
+)
+
 data class CreateOrderRequest(
-    @field:NotNull val restaurantId: UUID,
-    val driverId: UUID? = null,
+    @field:NotNull(message = "restaurantId is required")
+    val restaurantId: UUID,
+
+    @field:NotEmpty(message = "items cannot be empty")
+    @field:Valid
+    val items: List<OrderItemRequest>,
+
+    val driverId: UUID? = null
 )
 
 data class UpdateOrderStatusRequest(
     @field:NotNull val status: OrderStatus
+)
+
+// Response DTOs
+data class OrderItemResponse(
+    val id: UUID,
+    val menuItemId: UUID,
+    val menuItemName: String,
+    val quantity: Int,
+    val priceCents: Int,
+    val lineTotalCents: Int
 )
 
 data class OrderResponse(
@@ -19,8 +48,28 @@ data class OrderResponse(
     val restaurantId: UUID,
     val driverId: UUID?,
     val status: OrderStatus,
+    val totalCents: Int?,
+    val items: List<OrderItemResponse>,
     val createdAt: Instant,
-    val updatedAt: Instant,
+    val updatedAt: Instant
+)
+
+data class OrderHistoryResponse(
+    val orderId: UUID,
+    val totalCents: Int?,
+    val restaurantName: String,
+    val status: OrderStatus,
+    val itemCount: Int
+)
+
+// Extension functions for DTO mapping
+fun OrderItem.toResponse() = OrderItemResponse(
+    id = this.id,
+    menuItemId = this.menuItem.id,
+    menuItemName = this.menuItem.name,
+    quantity = this.quantity,
+    priceCents = this.priceCents,
+    lineTotalCents = this.quantity * this.priceCents
 )
 
 fun DeliveryOrder.toResponse() = OrderResponse(
@@ -29,20 +78,17 @@ fun DeliveryOrder.toResponse() = OrderResponse(
     restaurantId = this.restaurant.id,
     driverId = this.driverId,
     status = this.status,
+    totalCents = this.totalCents,
+    items = this.items.map { it.toResponse() },
     createdAt = this.createdAt,
-    updatedAt = this.updatedAt,
-)
-
-data class OrderHistoryResponse(
-    val orderId: UUID,
-    val totalCents: Int?,
-    val restaurantName: String,
-    val status: OrderStatus
+    updatedAt = this.updatedAt
 )
 
 fun DeliveryOrder.toHistoryResponse() = OrderHistoryResponse(
     orderId = this.id,
-    totalCents = null,
+    totalCents = this.totalCents,
     restaurantName = this.restaurant.name,
-    status = this.status
+    status = this.status,
+    itemCount = this.items.size
 )
+
