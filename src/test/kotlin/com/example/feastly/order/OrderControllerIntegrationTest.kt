@@ -635,5 +635,81 @@ class OrderControllerIntegrationTest {
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertTrue(response.body!!.contains("unavailable"))
     }
-}
 
+    // ========== Payment Tests ==========
+
+    @Test
+    fun `creating order sets payment status to PAID`() {
+        val user = createUser("payment-test-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Payment Test Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Premium Steak", 3500)
+
+        val orderRequest = CreateOrderRequest(
+            restaurantId = restaurant.id,
+            items = listOf(OrderItemRequest(menuItemId = menuItem.id, quantity = 1))
+        )
+
+        val response = restTemplate.exchange(
+            url("/api/orders"),
+            HttpMethod.POST,
+            HttpEntity(orderRequest, headersWithUser(user.id)),
+            OrderResponse::class.java
+        )
+
+        assertEquals(HttpStatus.CREATED, response.statusCode)
+        assertNotNull(response.body)
+        assertEquals("PAID", response.body!!.paymentStatus.name)
+        assertNotNull(response.body!!.paymentReference)
+        assertTrue(response.body!!.paymentReference!!.startsWith("mock_"))
+    }
+
+    @Test
+    fun `refund order sets payment status to REFUNDED`() {
+        val user = createUser("refund-test-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Refund Test Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Fine Wine", 5000)
+
+        // Create and pay for order
+        val order = createOrder(user.id, restaurant.id, menuItem.id)
+        assertEquals("PAID", order.paymentStatus.name)
+
+        // Refund order
+        val refundResponse = restTemplate.exchange(
+            url("/api/orders/${order.id}/refund"),
+            HttpMethod.POST,
+            HttpEntity<Void>(HttpHeaders()),
+            OrderResponse::class.java
+        )
+
+        assertEquals(HttpStatus.OK, refundResponse.statusCode)
+        assertEquals("REFUNDED", refundResponse.body!!.paymentStatus.name)
+    }
+
+    @Test
+    fun `refund unpaid order returns 409`() {
+        val user = createUser("refund-fail-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Refund Fail Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Cheap Snack", 500)
+
+        // Create order (will be PAID in mock, but we're testing the exception path)
+        val order = createOrder(user.id, restaurant.id, menuItem.id)
+
+        // First refund should work
+        restTemplate.exchange(
+            url("/api/orders/${order.id}/refund"),
+            HttpMethod.POST,
+            HttpEntity<Void>(HttpHeaders()),
+            OrderResponse::class.java
+        )
+
+        // Second refund should fail because status is already REFUNDED
+        val secondRefund = restTemplate.exchange(
+            url("/api/orders/${order.id}/refund"),
+            HttpMethod.POST,
+            HttpEntity<Void>(HttpHeaders()),
+            String::class.java
+        )
+
+        assertEquals(HttpStatus.CONFLICT, secondRefund.statusCode)
+    }
+}

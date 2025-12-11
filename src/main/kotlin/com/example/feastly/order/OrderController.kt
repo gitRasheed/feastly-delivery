@@ -89,5 +89,12 @@ class OrderController(
         val updated = service.confirmDelivery(orderId, driverId)
         return ResponseEntity.ok(updated.toResponse())
     }
-}
 
+    @PostMapping("/orders/{orderId}/refund")
+    fun refundOrder(
+        @PathVariable orderId: UUID
+    ): ResponseEntity<OrderResponse> {
+        val updated = service.refundOrder(orderId)
+        return ResponseEntity.ok(updated.toResponse())
+    }
+}

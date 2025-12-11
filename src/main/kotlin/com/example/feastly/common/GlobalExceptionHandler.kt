@@ -87,5 +87,14 @@ class GlobalExceptionHandler {
     fun handleMenuItemUnavailable(ex: MenuItemUnavailableException): ResponseEntity<ErrorResponse> =
         ResponseEntity.status(HttpStatus.CONFLICT)
             .body(ErrorResponse(error = ex.message ?: "Menu item unavailable"))
-}
 
+    @ExceptionHandler(PaymentFailedException::class)
+    fun handlePaymentFailed(ex: PaymentFailedException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED)
+            .body(ErrorResponse(error = ex.message ?: "Payment failed"))
+
+    @ExceptionHandler(RefundNotAllowedException::class)
+    fun handleRefundNotAllowed(ex: RefundNotAllowedException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ErrorResponse(error = ex.message ?: "Refund not allowed"))
+}

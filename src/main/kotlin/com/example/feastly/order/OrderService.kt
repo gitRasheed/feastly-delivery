@@ -8,11 +8,15 @@ import com.example.feastly.common.MenuItemUnavailableException
 import com.example.feastly.common.OrderAlreadyDeliveredException
 import com.example.feastly.common.OrderAlreadyFinalizedException
 import com.example.feastly.common.OrderNotFoundException
+import com.example.feastly.common.PaymentFailedException
+import com.example.feastly.common.RefundNotAllowedException
 import com.example.feastly.common.RestaurantNotFoundException
 import com.example.feastly.common.UnauthorizedDriverAccessException
 import com.example.feastly.common.UnauthorizedRestaurantAccessException
 import com.example.feastly.common.UserNotFoundException
 import com.example.feastly.menu.MenuItemRepository
+import com.example.feastly.payment.PaymentService
+import com.example.feastly.payment.PaymentStatus
 import com.example.feastly.restaurant.RestaurantRepository
 import com.example.feastly.user.UserRepository
 import org.springframework.data.repository.findByIdOrNull
@@ -27,7 +31,8 @@ class OrderService(
     private val orderRepository: OrderRepository,
     private val userRepository: UserRepository,
     private val restaurantRepository: RestaurantRepository,
-    private val menuItemRepository: MenuItemRepository
+    private val menuItemRepository: MenuItemRepository,
+    private val paymentService: PaymentService
 ) {
 
     fun create(userId: UUID, request: CreateOrderRequest): DeliveryOrder {
@@ -58,13 +63,14 @@ class OrderService(
             menuItem.priceCents * quantity
         }
 
-        // Create order
+        // Create order with PENDING payment status
         val order = DeliveryOrder(
             user = user,
             restaurant = restaurant,
             driverId = request.driverId,
             status = OrderStatus.SUBMITTED,
-            totalCents = totalCents
+            totalCents = totalCents,
+            paymentStatus = PaymentStatus.PENDING
         )
 
         // Create order items and add to order (cascade will persist them)
@@ -78,8 +84,28 @@ class OrderService(
         }
         order.items.addAll(orderItems)
 
-        // Save order - cascade will persist order items
-        return orderRepository.save(order)
+        // Save order first to get ID
+        val savedOrder = orderRepository.save(order)
+
+        // Process payment
+        val paymentResult = paymentService.chargeOrder(
+            customerId = userId,
+            orderId = savedOrder.id,
+            amountCents = totalCents
+        )
+
+        if (paymentResult.success) {
+            savedOrder.paymentStatus = PaymentStatus.PAID
+            savedOrder.paymentReference = paymentResult.providerPaymentId
+            savedOrder.updatedAt = Instant.now()
+        } else {
+            savedOrder.paymentStatus = PaymentStatus.FAILED
+            savedOrder.updatedAt = Instant.now()
+            orderRepository.save(savedOrder)
+            throw PaymentFailedException(paymentResult.message)
+        }
+
+        return orderRepository.save(savedOrder)
     }
 
     fun updateStatus(orderId: UUID, newStatus: OrderStatus): DeliveryOrder {
@@ -178,6 +204,24 @@ class OrderService(
             throw UserNotFoundException(userId)
         }
         return orderRepository.findByUser_Id(userId)
+    }
+
+    fun refundOrder(orderId: UUID): DeliveryOrder {
+        val order = orderRepository.findByIdOrNull(orderId)
+            ?: throw OrderNotFoundException(orderId)
+
+        if (order.paymentStatus != PaymentStatus.PAID) {
+            throw RefundNotAllowedException(orderId)
+        }
+
+        val refundResult = paymentService.refundOrder(orderId)
+
+        if (refundResult.success) {
+            order.paymentStatus = PaymentStatus.REFUNDED
+            order.updatedAt = Instant.now()
+        }
+
+        return orderRepository.save(order)
     }
 
     private fun findOrderAndValidateRestaurant(restaurantId: UUID, orderId: UUID): DeliveryOrder {

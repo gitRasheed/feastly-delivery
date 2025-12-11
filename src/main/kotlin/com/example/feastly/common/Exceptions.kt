@@ -36,3 +36,9 @@ class InvalidDeliveryStateException(orderId: UUID, status: OrderStatus) :
 
 class MenuItemUnavailableException(itemId: UUID) :
     IllegalStateException("Menu item $itemId is unavailable")
+
+class PaymentFailedException(message: String) : RuntimeException(message)
+
+class RefundNotAllowedException(orderId: UUID) :
+    IllegalStateException("Order $orderId cannot be refunded - payment was not successful")
+

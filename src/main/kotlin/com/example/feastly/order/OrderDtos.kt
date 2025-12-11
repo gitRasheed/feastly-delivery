@@ -1,5 +1,6 @@
 package com.example.feastly.order
 
+import com.example.feastly.payment.PaymentStatus
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotEmpty
@@ -50,6 +51,8 @@ data class OrderResponse(
     val status: OrderStatus,
     val totalCents: Int?,
     val items: List<OrderItemResponse>,
+    val paymentStatus: PaymentStatus,
+    val paymentReference: String?,
     val createdAt: Instant,
     val updatedAt: Instant
 )
@@ -80,6 +83,8 @@ fun DeliveryOrder.toResponse() = OrderResponse(
     status = this.status,
     totalCents = this.totalCents,
     items = this.items.map { it.toResponse() },
+    paymentStatus = this.paymentStatus,
+    paymentReference = this.paymentReference,
     createdAt = this.createdAt,
     updatedAt = this.updatedAt
 )
@@ -91,4 +96,3 @@ fun DeliveryOrder.toHistoryResponse() = OrderHistoryResponse(
     status = this.status,
     itemCount = this.items.size
 )
-

@@ -1,5 +1,6 @@
 package com.example.feastly.order
 
+import com.example.feastly.payment.PaymentStatus
 import com.example.feastly.restaurant.Restaurant
 import com.example.feastly.user.User
 import jakarta.persistence.CascadeType
@@ -51,10 +52,16 @@ class DeliveryOrder(
     @OneToMany(mappedBy = "order", cascade = [CascadeType.ALL], orphanRemoval = true)
     val items: MutableList<OrderItem> = mutableListOf(),
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false)
+    var paymentStatus: PaymentStatus = PaymentStatus.PENDING,
+
+    @Column(name = "payment_reference")
+    var paymentReference: String? = null,
+
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
 
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now()
 )
-
