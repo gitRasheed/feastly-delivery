@@ -1,8 +1,15 @@
 package com.example.feastly.order
 
+import com.example.feastly.common.DriverAlreadyAssignedException
+import com.example.feastly.common.InvalidDeliveryStateException
+import com.example.feastly.common.InvalidOrderStateForDispatchException
 import com.example.feastly.common.MenuItemNotFoundException
+import com.example.feastly.common.OrderAlreadyDeliveredException
+import com.example.feastly.common.OrderAlreadyFinalizedException
 import com.example.feastly.common.OrderNotFoundException
 import com.example.feastly.common.RestaurantNotFoundException
+import com.example.feastly.common.UnauthorizedDriverAccessException
+import com.example.feastly.common.UnauthorizedRestaurantAccessException
 import com.example.feastly.common.UserNotFoundException
 import com.example.feastly.menu.MenuItemRepository
 import com.example.feastly.restaurant.RestaurantRepository
@@ -51,7 +58,7 @@ class OrderService(
             user = user,
             restaurant = restaurant,
             driverId = request.driverId,
-            status = OrderStatus.AWAITING_RESTAURANT,
+            status = OrderStatus.SUBMITTED,
             totalCents = totalCents
         )
 
@@ -74,7 +81,87 @@ class OrderService(
         val order = orderRepository.findByIdOrNull(orderId)
             ?: throw OrderNotFoundException(orderId)
 
+        requireNotTerminal(order)
+
         order.status = newStatus
+        order.updatedAt = Instant.now()
+
+        return orderRepository.save(order)
+    }
+
+    fun acceptOrder(restaurantId: UUID, orderId: UUID): DeliveryOrder {
+        val order = findOrderAndValidateRestaurant(restaurantId, orderId)
+        requireSubmittedStatus(order)
+
+        order.status = OrderStatus.ACCEPTED
+        order.updatedAt = Instant.now()
+
+        return orderRepository.save(order)
+    }
+
+    fun rejectOrder(restaurantId: UUID, orderId: UUID): DeliveryOrder {
+        val order = findOrderAndValidateRestaurant(restaurantId, orderId)
+        requireSubmittedStatus(order)
+
+        order.status = OrderStatus.CANCELLED
+        order.updatedAt = Instant.now()
+
+        return orderRepository.save(order)
+    }
+
+    fun assignDriver(orderId: UUID, driverId: UUID): DeliveryOrder {
+        val order = orderRepository.findByIdOrNull(orderId)
+            ?: throw OrderNotFoundException(orderId)
+
+        requireNotTerminal(order)
+
+        if (order.status != OrderStatus.ACCEPTED) {
+            throw InvalidOrderStateForDispatchException(orderId, order.status)
+        }
+
+        if (order.driverId != null) {
+            throw DriverAlreadyAssignedException(orderId)
+        }
+
+        order.driverId = driverId
+        order.updatedAt = Instant.now()
+
+        return orderRepository.save(order)
+    }
+
+    fun confirmPickup(orderId: UUID, driverId: UUID): DeliveryOrder {
+        val order = orderRepository.findByIdOrNull(orderId)
+            ?: throw OrderNotFoundException(orderId)
+
+        requireNotTerminal(order)
+
+        if (order.status != OrderStatus.ACCEPTED) {
+            throw InvalidOrderStateForDispatchException(orderId, order.status)
+        }
+
+        if (order.driverId != driverId) {
+            throw UnauthorizedDriverAccessException(driverId)
+        }
+
+        order.status = OrderStatus.DISPATCHED
+        order.updatedAt = Instant.now()
+
+        return orderRepository.save(order)
+    }
+
+    fun confirmDelivery(orderId: UUID, driverId: UUID): DeliveryOrder {
+        val order = orderRepository.findByIdOrNull(orderId)
+            ?: throw OrderNotFoundException(orderId)
+
+        if (order.status != OrderStatus.DISPATCHED) {
+            throw InvalidDeliveryStateException(orderId, order.status)
+        }
+
+        if (order.driverId != driverId) {
+            throw UnauthorizedDriverAccessException(driverId)
+        }
+
+        order.status = OrderStatus.DELIVERED
         order.updatedAt = Instant.now()
 
         return orderRepository.save(order)
@@ -87,5 +174,27 @@ class OrderService(
         }
         return orderRepository.findByUser_Id(userId)
     }
-}
 
+    private fun findOrderAndValidateRestaurant(restaurantId: UUID, orderId: UUID): DeliveryOrder {
+        val order = orderRepository.findByIdOrNull(orderId)
+            ?: throw OrderNotFoundException(orderId)
+
+        if (order.restaurant.id != restaurantId) {
+            throw UnauthorizedRestaurantAccessException(restaurantId)
+        }
+
+        return order
+    }
+
+    private fun requireSubmittedStatus(order: DeliveryOrder) {
+        if (order.status != OrderStatus.SUBMITTED) {
+            throw OrderAlreadyFinalizedException(order.status)
+        }
+    }
+
+    private fun requireNotTerminal(order: DeliveryOrder) {
+        if (order.status == OrderStatus.DELIVERED || order.status == OrderStatus.CANCELLED) {
+            throw OrderAlreadyDeliveredException(order.id)
+        }
+    }
+}
