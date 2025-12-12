@@ -22,6 +22,15 @@ class DispatchService(
 ) {
     private val logger = LoggerFactory.getLogger(DispatchService::class.java)
 
+    companion object {
+        // Placeholder restaurant location (would come from restaurant entity in production)
+        private const val DEFAULT_RESTAURANT_LAT = 40.7128
+        private const val DEFAULT_RESTAURANT_LNG = -74.0060
+
+        // Offer expiration timeout
+        private const val OFFER_TIMEOUT_SECONDS = 120L
+    }
+
     /**
      * Start dispatch process for an accepted order.
      * Finds the nearest available driver who hasn't rejected this order.
@@ -41,8 +50,8 @@ class DispatchService(
         }
 
         // Get restaurant location for distance calculation
-        val restaurantLat = 40.7128 // Placeholder - would come from restaurant entity
-        val restaurantLng = -74.0060
+        val restaurantLat = DEFAULT_RESTAURANT_LAT
+        val restaurantLng = DEFAULT_RESTAURANT_LNG
 
         // Get available drivers
         val availableDrivers = driverStatusService.getAvailableDrivers()
@@ -130,7 +139,7 @@ class DispatchService(
      */
     fun expireStaleOffers(orderId: UUID) {
         val pendingOffers = dispatchAttemptRepository.findByOrderIdAndStatus(orderId, DispatchAttemptStatus.PENDING)
-        val twoMinutesAgo = Instant.now().minusSeconds(120)
+        val twoMinutesAgo = Instant.now().minusSeconds(OFFER_TIMEOUT_SECONDS)
 
         pendingOffers
             .filter { it.offeredAt.isBefore(twoMinutesAgo) }
@@ -216,7 +225,7 @@ class DispatchService(
      * Returns the count of expired offers.
      */
     fun expirePendingOffers(): Int {
-        val cutoff = Instant.now().minusSeconds(120)
+        val cutoff = Instant.now().minusSeconds(OFFER_TIMEOUT_SECONDS)
         val staleOffers = dispatchAttemptRepository.findByStatusAndOfferedAtBefore(
             DispatchAttemptStatus.PENDING,
             cutoff

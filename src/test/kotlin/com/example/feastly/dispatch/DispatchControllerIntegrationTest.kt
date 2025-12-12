@@ -102,15 +102,6 @@ class DispatchControllerIntegrationTest {
         )
     }
 
-    private fun setDriverUnavailable(driverId: UUID) {
-        restTemplate.exchange(
-            url("/api/drivers/$driverId/status"),
-            HttpMethod.PUT,
-            HttpEntity(DriverStatusUpdateRequest(false, 0.0, 0.0), jsonHeaders()),
-            Any::class.java
-        )
-    }
-
     @Test
     fun `dispatch offers order to available driver`() {
         val user = createUser("dispatch-test-${UUID.randomUUID()}@example.com")

@@ -62,6 +62,7 @@ tasks.withType<Test> {
 // Detekt: use project config, report issues but don't fail build
 detekt {
 	config.setFrom(file("detekt.yml"))
+	buildUponDefaultConfig = true  // Run ALL default rules, detekt.yml only overrides specific settings
 	ignoreFailures = true
 }
 

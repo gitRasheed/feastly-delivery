@@ -1,11 +1,40 @@
-# Detekt configuration
+# Detekt configuration for Spring Boot + Kotlin + JPA
 # See https://detekt.dev/docs/introduction/configurations
 
 complexity:
   LongParameterList:
     # JPA entities require all database columns in constructors
-    # Increase threshold to accommodate typical entity sizes
-    constructorThreshold: 10
-    functionThreshold: 6
+    constructorThreshold: 12
+    functionThreshold: 8
     ignoreDefaultParameters: true
 
+  TooManyFunctions:
+    # Spring controllers, services, and exception handlers have many methods by design
+    thresholdInClasses: 15
+    thresholdInFiles: 20
+
+naming:
+  FunctionNaming:
+    # Spring Data JPA uses underscores in derived query methods (e.g., findByUser_Id)
+    functionPattern: '[a-zA-Z][a-zA-Z0-9_]*'
+
+style:
+  ReturnCount:
+    # Guard clauses (early returns) are a valid pattern
+    max: 5
+    excludeGuardClauses: true
+
+  ThrowsCount:
+    # Validation logic requires multiple throw points
+    max: 5
+
+  MagicNumber:
+    # Don't flag numbers in validation annotations like @Min, @Max
+    ignoreAnnotation: true
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+
+performance:
+  SpreadOperator:
+    # Spring Boot main() uses *args by convention
+    active: false
