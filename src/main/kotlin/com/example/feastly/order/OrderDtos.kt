@@ -8,7 +8,6 @@ import jakarta.validation.constraints.NotNull
 import java.time.Instant
 import java.util.UUID
 
-// Request DTOs
 data class OrderItemRequest(
     @field:NotNull(message = "menuItemId is required")
     val menuItemId: UUID,
@@ -35,7 +34,6 @@ data class UpdateOrderStatusRequest(
     @field:NotNull val status: OrderStatus
 )
 
-// Response DTOs
 data class OrderItemResponse(
     val id: UUID,
     val menuItemId: UUID,
@@ -72,7 +70,6 @@ data class OrderHistoryResponse(
     val itemCount: Int
 )
 
-// Extension functions for DTO mapping
 fun OrderItem.toResponse() = OrderItemResponse(
     id = this.id,
     menuItemId = this.menuItem.id,

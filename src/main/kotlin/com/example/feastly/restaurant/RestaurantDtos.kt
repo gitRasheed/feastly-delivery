@@ -3,14 +3,12 @@ package com.example.feastly.restaurant
 import jakarta.validation.constraints.NotBlank
 import java.util.UUID
 
-// Request DTO for Restaurant registration
 data class RestaurantRegisterRequest(
     @field:NotBlank(message = "name is required") val name: String,
     @field:NotBlank(message = "address is required") val address: String,
     @field:NotBlank(message = "cuisine is required") val cuisine: String,
 )
 
-// Response DTO
 data class RestaurantResponse(
     val id: UUID,
     val name: String,
