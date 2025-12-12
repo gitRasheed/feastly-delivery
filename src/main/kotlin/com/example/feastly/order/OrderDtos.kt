@@ -26,7 +26,9 @@ data class CreateOrderRequest(
     @field:Valid
     val items: List<OrderItemRequest>,
 
-    val driverId: UUID? = null
+    val driverId: UUID? = null,
+    val discountCode: String? = null,
+    val tipCents: Int? = 0
 )
 
 data class UpdateOrderStatusRequest(
@@ -49,6 +51,11 @@ data class OrderResponse(
     val restaurantId: UUID,
     val driverId: UUID?,
     val status: OrderStatus,
+    val itemsSubtotalCents: Int,
+    val serviceFeeCents: Int,
+    val deliveryFeeCents: Int,
+    val discountCents: Int,
+    val tipCents: Int,
     val totalCents: Int?,
     val items: List<OrderItemResponse>,
     val paymentStatus: PaymentStatus,
@@ -81,6 +88,11 @@ fun DeliveryOrder.toResponse() = OrderResponse(
     restaurantId = this.restaurant.id,
     driverId = this.driverId,
     status = this.status,
+    itemsSubtotalCents = this.itemsSubtotalCents,
+    serviceFeeCents = this.serviceFeeCents,
+    deliveryFeeCents = this.deliveryFeeCents,
+    discountCents = this.discountCents,
+    tipCents = this.tipCents,
     totalCents = this.totalCents,
     items = this.items.map { it.toResponse() },
     paymentStatus = this.paymentStatus,
