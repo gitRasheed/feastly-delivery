@@ -19,6 +19,10 @@ class DefaultPricingService(
     private val pricingPolicy: PricingPolicy
 ) : PricingService {
 
+    companion object {
+        private const val BPS_DIVISOR = 10_000
+    }
+
     override fun previewPricing(request: PricingPreviewRequest): PricingBreakdown {
         val menuItems = request.items.map { itemRequest ->
             val menuItem = menuItemRepository.findByIdOrNull(itemRequest.menuItemId)
@@ -85,7 +89,7 @@ class DefaultPricingService(
     }
 
     private fun computeServiceFee(subtotalCents: Int): Int {
-        val rawFee = (subtotalCents * pricingPolicy.serviceFeeBps) / 10_000
+        val rawFee = (subtotalCents * pricingPolicy.serviceFeeBps) / BPS_DIVISOR
         val withMin = max(rawFee, pricingPolicy.minServiceFeeCents)
         return pricingPolicy.maxServiceFeeCents?.let { min(withMin, it) } ?: withMin
     }
@@ -103,7 +107,7 @@ class DefaultPricingService(
         return when (discount.type) {
             DiscountType.PERCENT -> {
                 val bps = discount.percentBps ?: 0
-                (itemsSubtotalCents * bps) / 10_000
+                (itemsSubtotalCents * bps) / BPS_DIVISOR
             }
             DiscountType.FIXED_CENTS -> {
                 val fixed = discount.fixedCents ?: 0
