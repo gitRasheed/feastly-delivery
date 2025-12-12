@@ -47,7 +47,22 @@ class DeliveryOrder(
     var status: OrderStatus = OrderStatus.SUBMITTED,
 
     @Column(name = "total_cents")
-    val totalCents: Int? = null,
+    var totalCents: Int? = null,
+
+    @Column(name = "items_subtotal_cents", nullable = false)
+    var itemsSubtotalCents: Int = 0,
+
+    @Column(name = "service_fee_cents", nullable = false)
+    var serviceFeeCents: Int = 0,
+
+    @Column(name = "delivery_fee_cents", nullable = false)
+    var deliveryFeeCents: Int = 0,
+
+    @Column(name = "discount_cents", nullable = false)
+    var discountCents: Int = 0,
+
+    @Column(name = "tip_cents", nullable = false)
+    var tipCents: Int = 0,
 
     @OneToMany(mappedBy = "order", cascade = [CascadeType.ALL], orphanRemoval = true)
     val items: MutableList<OrderItem> = mutableListOf(),
