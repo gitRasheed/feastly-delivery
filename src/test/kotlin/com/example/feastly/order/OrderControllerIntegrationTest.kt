@@ -104,8 +104,19 @@ class OrderControllerIntegrationTest {
         assertEquals(user.id, createdOrder.userId)
         assertEquals(restaurant.id, createdOrder.restaurantId)
 
-        // Total: 2 * 1500 + 3 * 300 = 3000 + 900 = 3900
-        assertEquals(3900, createdOrder.totalCents)
+        // Pricing breakdown:
+        // Subtotal: 2 * 1500 + 3 * 300 = 3000 + 900 = 3900
+        assertEquals(3900, createdOrder.itemsSubtotalCents)
+        // Service fee: 10% of 3900 = 390 (within min 99, max 999)
+        assertEquals(390, createdOrder.serviceFeeCents)
+        // Delivery fee: flat 299
+        assertEquals(299, createdOrder.deliveryFeeCents)
+        // No discount, no tip
+        assertEquals(0, createdOrder.discountCents)
+        assertEquals(0, createdOrder.tipCents)
+        // Total: 3900 + 390 + 299 = 4589
+        assertEquals(4589, createdOrder.totalCents)
+
         assertEquals(2, createdOrder.items.size)
 
         val pizzaItem = createdOrder.items.find { it.menuItemName == "Pizza" }
@@ -711,5 +722,99 @@ class OrderControllerIntegrationTest {
         )
 
         assertEquals(HttpStatus.CONFLICT, secondRefund.statusCode)
+    }
+
+    // ========== Pricing Immutability Tests ==========
+
+    @Test
+    fun `refund preserves pricing breakdown unchanged`() {
+        val user = createUser("refund-pricing-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Refund Pricing Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Expensive Dish", 2000)
+
+        val order = createOrder(user.id, restaurant.id, menuItem.id)
+
+        // Capture original pricing
+        val originalSubtotal = order.itemsSubtotalCents
+        val originalServiceFee = order.serviceFeeCents
+        val originalDeliveryFee = order.deliveryFeeCents
+        val originalTotal = order.totalCents
+
+        // Refund the order
+        val refundResponse = restTemplate.exchange(
+            url("/api/orders/${order.id}/refund"),
+            HttpMethod.POST,
+            HttpEntity<Void>(HttpHeaders()),
+            OrderResponse::class.java
+        )
+
+        assertEquals(HttpStatus.OK, refundResponse.statusCode)
+        val refundedOrder = refundResponse.body!!
+
+        // Pricing must be unchanged
+        assertEquals(originalSubtotal, refundedOrder.itemsSubtotalCents)
+        assertEquals(originalServiceFee, refundedOrder.serviceFeeCents)
+        assertEquals(originalDeliveryFee, refundedOrder.deliveryFeeCents)
+        assertEquals(originalTotal, refundedOrder.totalCents)
+        assertEquals("REFUNDED", refundedOrder.paymentStatus.name)
+    }
+
+    @Test
+    fun `status updates do not modify pricing breakdown`() {
+        val user = createUser("status-pricing-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Status Pricing Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Test Meal", 1500)
+
+        val order = createOrder(user.id, restaurant.id, menuItem.id)
+
+        // Capture original pricing
+        val originalSubtotal = order.itemsSubtotalCents
+        val originalTotal = order.totalCents
+
+        // Accept order
+        val acceptedResponse = restTemplate.exchange(
+            url("/api/restaurants/${restaurant.id}/orders/${order.id}/accept"),
+            HttpMethod.PATCH,
+            HttpEntity<Void>(HttpHeaders()),
+            OrderResponse::class.java
+        )
+
+        assertEquals(HttpStatus.OK, acceptedResponse.statusCode)
+        val acceptedOrder = acceptedResponse.body!!
+
+        // Pricing must be unchanged
+        assertEquals(originalSubtotal, acceptedOrder.itemsSubtotalCents)
+        assertEquals(originalTotal, acceptedOrder.totalCents)
+        assertEquals(OrderStatus.ACCEPTED, acceptedOrder.status)
+    }
+
+    @Test
+    fun `order creation with tip includes tip in total`() {
+        val user = createUser("tip-test-${UUID.randomUUID()}@example.com")
+        val restaurant = createRestaurant("Tip Restaurant ${UUID.randomUUID()}")
+        val menuItem = createMenuItem(restaurant.id, "Burger", 1200)
+
+        val createOrder = CreateOrderRequest(
+            restaurantId = restaurant.id,
+            items = listOf(OrderItemRequest(menuItemId = menuItem.id, quantity = 1)),
+            tipCents = 300
+        )
+
+        val response = restTemplate.exchange(
+            url("/api/orders"),
+            HttpMethod.POST,
+            HttpEntity(createOrder, headersWithUser(user.id)),
+            OrderResponse::class.java
+        )
+
+        assertEquals(HttpStatus.CREATED, response.statusCode)
+        val order = response.body!!
+
+        // Subtotal: 1200
+        assertEquals(1200, order.itemsSubtotalCents)
+        // Tip: 300
+        assertEquals(300, order.tipCents)
+        // Total: 1200 + 120 (10% service fee) + 299 (delivery) + 300 (tip) = 1919
+        assertEquals(1919, order.totalCents)
     }
 }

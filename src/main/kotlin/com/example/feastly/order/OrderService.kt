@@ -20,6 +20,7 @@ import com.example.feastly.payment.PaymentStatus
 import com.example.feastly.restaurant.RestaurantRepository
 import com.example.feastly.user.UserRepository
 import org.springframework.data.repository.findByIdOrNull
+import com.example.feastly.pricing.PricingService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -32,7 +33,8 @@ class OrderService(
     private val userRepository: UserRepository,
     private val restaurantRepository: RestaurantRepository,
     private val menuItemRepository: MenuItemRepository,
-    private val paymentService: PaymentService
+    private val paymentService: PaymentService,
+    private val pricingService: PricingService
 ) {
 
     fun create(userId: UUID, request: CreateOrderRequest): DeliveryOrder {
@@ -42,7 +44,6 @@ class OrderService(
         val restaurant = restaurantRepository.findByIdOrNull(request.restaurantId)
             ?: throw RestaurantNotFoundException(request.restaurantId)
 
-        // Fetch and validate all menu items belong to the restaurant
         val menuItems = request.items.map { itemRequest ->
             val menuItem = menuItemRepository.findByIdOrNull(itemRequest.menuItemId)
                 ?: throw MenuItemNotFoundException(itemRequest.menuItemId)
@@ -58,22 +59,14 @@ class OrderService(
             menuItem to itemRequest.quantity
         }
 
-        // Calculate total
-        val totalCents = menuItems.sumOf { (menuItem, quantity) ->
-            menuItem.priceCents * quantity
-        }
-
-        // Create order with PENDING payment status
         val order = DeliveryOrder(
             user = user,
             restaurant = restaurant,
             driverId = request.driverId,
             status = OrderStatus.SUBMITTED,
-            totalCents = totalCents,
             paymentStatus = PaymentStatus.PENDING
         )
 
-        // Create order items and add to order (cascade will persist them)
         val orderItems = menuItems.map { (menuItem, quantity) ->
             OrderItem(
                 order = order,
@@ -84,14 +77,26 @@ class OrderService(
         }
         order.items.addAll(orderItems)
 
-        // Save order first to get ID
         val savedOrder = orderRepository.save(order)
 
-        // Process payment
+        val breakdown = pricingService.priceExistingOrder(
+            orderId = savedOrder.id,
+            discountCode = request.discountCode,
+            tipCents = request.tipCents ?: 0
+        )
+
+        savedOrder.itemsSubtotalCents = breakdown.itemsSubtotalCents
+        savedOrder.serviceFeeCents = breakdown.serviceFeeCents
+        savedOrder.deliveryFeeCents = breakdown.deliveryFeeCents
+        savedOrder.discountCents = breakdown.discountCents
+        savedOrder.tipCents = breakdown.tipCents
+        savedOrder.totalCents = breakdown.totalCents
+        savedOrder.updatedAt = Instant.now()
+
         val paymentResult = paymentService.chargeOrder(
             customerId = userId,
             orderId = savedOrder.id,
-            amountCents = totalCents
+            amountCents = breakdown.totalCents
         )
 
         if (paymentResult.success) {
