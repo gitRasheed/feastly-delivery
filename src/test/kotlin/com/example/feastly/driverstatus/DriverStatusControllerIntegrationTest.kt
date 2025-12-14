@@ -1,5 +1,7 @@
 package com.example.feastly.driverstatus
 
+import com.example.feastly.BaseIntegrationTest
+
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -15,7 +17,7 @@ import java.util.UUID
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-class DriverStatusControllerIntegrationTest {
+class DriverStatusControllerIntegrationTest : BaseIntegrationTest() {
 
     @LocalServerPort
     private var port: Int = 0

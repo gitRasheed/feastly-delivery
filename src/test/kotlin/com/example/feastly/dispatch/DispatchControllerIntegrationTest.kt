@@ -1,5 +1,6 @@
 package com.example.feastly.dispatch
 
+import com.example.feastly.BaseIntegrationTest
 import com.example.feastly.driverstatus.DriverStatusUpdateRequest
 import com.example.feastly.menu.MenuItemRequest
 import com.example.feastly.menu.MenuItemResponse
@@ -29,7 +30,7 @@ import java.util.UUID
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-class DispatchControllerIntegrationTest {
+class DispatchControllerIntegrationTest : BaseIntegrationTest() {
 
     @LocalServerPort
     private var port: Int = 0

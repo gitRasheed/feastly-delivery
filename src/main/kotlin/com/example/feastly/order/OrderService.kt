@@ -14,6 +14,8 @@ import com.example.feastly.common.RestaurantNotFoundException
 import com.example.feastly.common.UnauthorizedDriverAccessException
 import com.example.feastly.common.UnauthorizedRestaurantAccessException
 import com.example.feastly.common.UserNotFoundException
+import com.example.feastly.events.OrderAcceptedEvent
+import com.example.feastly.events.OrderPlacedEvent
 import com.example.feastly.menu.MenuItemRepository
 import com.example.feastly.payment.PaymentService
 import com.example.feastly.payment.PaymentStatus
@@ -21,6 +23,7 @@ import com.example.feastly.restaurant.RestaurantRepository
 import com.example.feastly.user.UserRepository
 import org.springframework.data.repository.findByIdOrNull
 import com.example.feastly.pricing.PricingService
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -34,8 +37,13 @@ class OrderService(
     private val restaurantRepository: RestaurantRepository,
     private val menuItemRepository: MenuItemRepository,
     private val paymentService: PaymentService,
-    private val pricingService: PricingService
+    private val pricingService: PricingService,
+    private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
+
+    companion object {
+        private const val ORDER_EVENTS_TOPIC = "order.events"
+    }
 
     fun create(userId: UUID, request: CreateOrderRequest): DeliveryOrder {
         val user = userRepository.findByIdOrNull(userId)
@@ -110,7 +118,16 @@ class OrderService(
             throw PaymentFailedException(paymentResult.message)
         }
 
-        return orderRepository.save(savedOrder)
+        val finalOrder = orderRepository.save(savedOrder)
+
+        val event = OrderPlacedEvent(
+            orderId = finalOrder.id,
+            userId = userId,
+            totalCents = finalOrder.totalCents ?: 0
+        )
+        kafkaTemplate.send(ORDER_EVENTS_TOPIC, finalOrder.id.toString(), event)
+
+        return finalOrder
     }
 
     fun updateStatus(orderId: UUID, newStatus: OrderStatus): DeliveryOrder {
@@ -132,7 +149,15 @@ class OrderService(
         order.status = OrderStatus.ACCEPTED
         order.updatedAt = Instant.now()
 
-        return orderRepository.save(order)
+        val saved = orderRepository.save(order)
+
+        val event = OrderAcceptedEvent(
+            orderId = saved.id,
+            restaurantId = restaurantId
+        )
+        kafkaTemplate.send(ORDER_EVENTS_TOPIC, saved.id.toString(), event)
+
+        return saved
     }
 
     fun rejectOrder(restaurantId: UUID, orderId: UUID): DeliveryOrder {
