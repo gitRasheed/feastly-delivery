@@ -9,7 +9,8 @@ import java.util.UUID
 @Service
 @Transactional
 class DriverStatusService(
-    private val driverStatusRepository: DriverStatusRepository
+    private val driverStatusRepository: DriverStatusRepository,
+    private val driverLocationAggregator: DriverLocationAggregator
 ) {
 
     fun updateStatus(driverId: UUID, request: DriverStatusUpdateRequest): DriverStatusResponse {
@@ -26,7 +27,11 @@ class DriverStatusService(
         status.longitude = request.longitude
         status.lastUpdated = Instant.now()
 
-        return driverStatusRepository.save(status).toResponse()
+        val saved = driverStatusRepository.save(status)
+
+        driverLocationAggregator.bufferUpdate(driverId, saved.latitude, saved.longitude)
+
+        return saved.toResponse()
     }
 
     @Transactional(readOnly = true)
@@ -39,3 +44,4 @@ class DriverStatusService(
         return driverStatusRepository.findByIdOrNull(driverId)?.toResponse()
     }
 }
+
