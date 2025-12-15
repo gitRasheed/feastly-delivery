@@ -1,6 +1,6 @@
 # Feastly Delivery App
 
-## 🚀 Quick Start
+## Quick Start
 
 1. Copy env file:
 
@@ -18,12 +18,5 @@ docker compose -f infra/docker-compose.yml up --build
 - API: http://localhost:8080
 - Postgres: localhost:5432
 - Redis: localhost:6379
-
-
-
-## Motivation
-todo
-## Usage
-todo
-## Contributing
-todo
+- Kafka: localhost:9092
+- Zookeeper: localhost:2181
