@@ -13,8 +13,15 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/drivers")
 class DriverStatusController(
-    private val driverStatusService: DriverStatusService
+    private val driverStatusService: DriverStatusService,
+    private val driverStatusRepository: DriverStatusRepository
 ) {
+
+    @GetMapping("/driver-status")
+    fun getAllDrivers(): ResponseEntity<List<DriverStatusResponse>> {
+        val drivers = driverStatusRepository.findAll().map { it.toResponse() }
+        return ResponseEntity.ok(drivers)
+    }
 
     @PutMapping("/{driverId}/status")
     fun updateStatus(
@@ -41,3 +48,4 @@ class DriverStatusController(
         return ResponseEntity.ok(drivers)
     }
 }
+

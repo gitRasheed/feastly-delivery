@@ -1,0 +1,7 @@
+# Use pre-built JAR for faster builds
+# Run: ./gradlew :driver-tracking-service:bootJar before docker compose up
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY driver-tracking-service/build/libs/*.jar app.jar
+EXPOSE 8082
+ENTRYPOINT ["java", "-jar", "app.jar"]

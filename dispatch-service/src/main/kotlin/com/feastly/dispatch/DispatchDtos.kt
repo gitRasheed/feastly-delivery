@@ -1,5 +1,6 @@
 package com.feastly.dispatch
 
+import com.feastly.events.DispatchAttemptStatus
 import java.util.UUID
 
 data class DispatchOfferResponse(
@@ -12,3 +13,16 @@ data class DispatchStatusResponse(
     val pendingOfferId: UUID?,
     val status: String
 )
+
+data class DispatchAttemptResponse(
+    val orderId: UUID,
+    val driverId: UUID?,
+    val status: DispatchAttemptStatus
+)
+
+fun DispatchAttempt.toResponse() = DispatchAttemptResponse(
+    orderId = orderId,
+    driverId = driverId,
+    status = status
+)
+

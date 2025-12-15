@@ -1,23 +1,63 @@
 services:
-  app:
+  # Microservices
+  order-service:
     build:
       context: ..
-      dockerfile: infra/Dockerfile
-    env_file:
-      - .env
+      dockerfile: Dockerfile.order
     ports:
       - "8080:8080"
     depends_on:
       - postgres
-      - redis
+      - kafka
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/feastly
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
 
+  dispatch-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile.dispatch
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/dispatch
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  driver-tracking-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile.driver-tracking
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/driver_tracking
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  # Infrastructure
   postgres:
     image: postgres:15-alpine
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_MULTIPLE_DATABASES: feastly,dispatch,driver_tracking
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     ports:
       - "5432:5432"
 

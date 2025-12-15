@@ -1,0 +1,7 @@
+# Use pre-built JAR for faster builds
+# Run: ./gradlew :dispatch-service:bootJar before docker compose up
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY dispatch-service/build/libs/*.jar app.jar
+EXPOSE 8081
+ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -12,8 +12,15 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/dispatch")
 class DispatchController(
-    private val dispatchService: DispatchService
+    private val dispatchService: DispatchService,
+    private val dispatchAttemptRepository: DispatchAttemptRepository
 ) {
+
+    @GetMapping("/attempts")
+    fun getAllAttempts(): ResponseEntity<List<DispatchAttemptResponse>> {
+        val attempts = dispatchAttemptRepository.findAll().map { it.toResponse() }
+        return ResponseEntity.ok(attempts)
+    }
 
     @PostMapping("/orders/{orderId}/start")
     fun startDispatch(@PathVariable orderId: UUID): ResponseEntity<DispatchAttempt> {
@@ -63,3 +70,4 @@ class DispatchController(
         return ResponseEntity.ok(mapOf("expiredCount" to count))
     }
 }
+
