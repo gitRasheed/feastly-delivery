@@ -1,5 +1,7 @@
 package com.example.feastly.menu
 
+import com.example.feastly.BaseIntegrationTest
+
 import com.example.feastly.restaurant.RestaurantRegisterRequest
 import com.example.feastly.restaurant.RestaurantResponse
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -19,7 +21,7 @@ import java.util.UUID
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-class MenuItemControllerIntegrationTest {
+class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
 
     @LocalServerPort
     private var port: Int = 0

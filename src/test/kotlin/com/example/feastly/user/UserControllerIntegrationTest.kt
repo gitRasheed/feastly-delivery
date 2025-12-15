@@ -1,5 +1,7 @@
 package com.example.feastly.user
 
+import com.example.feastly.BaseIntegrationTest
+
 import com.example.feastly.menu.MenuItemRequest
 import com.example.feastly.menu.MenuItemResponse
 import com.example.feastly.order.CreateOrderRequest
@@ -26,7 +28,7 @@ import java.util.UUID
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-class UserControllerIntegrationTest {
+class UserControllerIntegrationTest : BaseIntegrationTest() {
 
     @LocalServerPort
     private var port: Int = 0

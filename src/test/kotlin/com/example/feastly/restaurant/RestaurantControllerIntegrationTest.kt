@@ -1,5 +1,7 @@
 package com.example.feastly.restaurant
 
+import com.example.feastly.BaseIntegrationTest
+
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -14,7 +16,7 @@ import org.springframework.test.context.ActiveProfiles
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-class RestaurantControllerIntegrationTest {
+class RestaurantControllerIntegrationTest : BaseIntegrationTest() {
 
     @LocalServerPort
     private var port: Int = 0

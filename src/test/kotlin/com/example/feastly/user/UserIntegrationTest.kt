@@ -1,5 +1,6 @@
 package com.example.feastly.user
 
+import com.example.feastly.BaseIntegrationTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -12,9 +13,10 @@ import org.springframework.test.context.ActiveProfiles
 
 @SpringBootTest
 @ActiveProfiles("test")
-class UserIntegrationTest(
-    @Autowired val userRepository: UserRepository
-) {
+class UserIntegrationTest : BaseIntegrationTest() {
+
+    @Autowired
+    private lateinit var userRepository: UserRepository
     @Test
     fun `can save and retrieve a user`() {
         val testUser = User(email = "test@example.com", password = "hashedpassword123")
