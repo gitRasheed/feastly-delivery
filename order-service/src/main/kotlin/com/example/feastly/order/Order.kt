@@ -16,6 +16,7 @@ enum class OrderStatus {
     SUBMITTED,
     ACCEPTED,
     PREPARING,
+    DRIVER_ASSIGNED,
     DISPATCHED,
     DELIVERED,
     CANCELLED
