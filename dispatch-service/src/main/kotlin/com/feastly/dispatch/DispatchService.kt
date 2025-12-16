@@ -46,14 +46,14 @@ class DispatchService(
             return null
         }
 
-        // Get available drivers
+
         val availableDrivers = driverStatusPort.getAvailableDrivers()
         if (availableDrivers.isEmpty()) {
             logger.info("No available drivers for order $orderId")
             return null
         }
 
-        // Get drivers who already rejected/expired/cancelled for this order
+
         val excludedDriverIds = dispatchAttemptRepository.findByOrderId(orderId)
             .filter { it.status in listOf(
                 DispatchAttemptStatus.REJECTED,

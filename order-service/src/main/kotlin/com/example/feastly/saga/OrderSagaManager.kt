@@ -79,7 +79,7 @@ class OrderSagaManager(
             return
         }
 
-        // Update to AWAITING_DRIVER with tracking
+
         order.status = OrderStatus.AWAITING_DRIVER
         order.dispatchAttemptCount = 1
         order.dispatchSentAt = Instant.now()
@@ -102,7 +102,6 @@ class OrderSagaManager(
 
             if (elapsed >= DISPATCH_TIMEOUT) {
                 if (order.dispatchAttemptCount < MAX_DISPATCH_ATTEMPTS) {
-                    // Retry
                     order.dispatchAttemptCount++
                     order.dispatchSentAt = now
                     orderRepository.save(order)
@@ -111,7 +110,6 @@ class OrderSagaManager(
                     kafkaTemplate.send(KafkaTopics.DISPATCH_ASSIGN_DRIVER, order.id.toString(), command)
                     log.info("Saga retrying AssignDriverCommand for order {} (attempt {})", order.id, order.dispatchAttemptCount)
                 } else {
-                    // Max attempts reached, mark as failed
                     order.status = OrderStatus.DISPATCH_FAILED
                     orderRepository.save(order)
                     log.warn("Order {} marked DISPATCH_FAILED after {} attempts", order.id, order.dispatchAttemptCount)

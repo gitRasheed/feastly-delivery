@@ -93,10 +93,9 @@ class DispatchEventListener(
             MDC.put(TRACE_ID_MDC_KEY, traceId)
             logger.info("Received AssignDriverCommand for order ${command.orderId}")
 
-            // Assign a dummy driver (in real system, would use dispatch logic)
+
             val driverId = UUID.randomUUID()
 
-            // Emit DriverAssignedEvent
             val event = DriverAssignedEvent(
                 orderId = command.orderId,
                 driverId = driverId
