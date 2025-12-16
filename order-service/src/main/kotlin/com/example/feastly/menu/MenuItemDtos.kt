@@ -33,7 +33,7 @@ data class MenuItemResponse(
 
 fun MenuItem.toResponse() = MenuItemResponse(
     id = this.id,
-    restaurantId = this.restaurant.id,
+    restaurantId = this.restaurantId,
     name = this.name,
     description = this.description,
     priceCents = this.priceCents,

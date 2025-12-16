@@ -28,7 +28,7 @@ class DefaultPricingService(
             val menuItem = menuItemRepository.findByIdOrNull(itemRequest.menuItemId)
                 ?: throw MenuItemNotFoundException(itemRequest.menuItemId)
 
-            require(menuItem.restaurant.id == request.restaurantId) {
+            require(menuItem.restaurantId == request.restaurantId) {
                 "Menu item ${menuItem.id} does not belong to restaurant ${request.restaurantId}"
             }
 

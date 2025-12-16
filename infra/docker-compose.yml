@@ -8,12 +8,15 @@ services:
     depends_on:
       - postgres
       - kafka
+      - user-service
+      - restaurant-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/feastly
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-
+      SERVICES_USER_URL: http://user-service:8083
+      SERVICES_RESTAURANT_URL: http://restaurant-service:8084
   dispatch-service:
     build:
       context: ..

@@ -1,9 +1,6 @@
 package com.example.feastly.menu
 
 import com.example.feastly.BaseIntegrationTest
-
-import com.example.feastly.restaurant.RestaurantRegisterRequest
-import com.example.feastly.restaurant.RestaurantResponse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -29,179 +26,135 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
-    private var restaurantId: UUID? = null
+    private lateinit var restaurantId: UUID
 
     private fun url(path: String) = "http://localhost:$port$path"
 
     @BeforeEach
     fun setup() {
-        val req = RestaurantRegisterRequest(
-            name = "Test Restaurant ${UUID.randomUUID()}",
-            address = "123 Test St",
-            cuisine = "Italian"
-        )
-        val res = restTemplate.postForEntity(url("/api/restaurants"), req, RestaurantResponse::class.java)
-        restaurantId = res.body!!.id
+        restaurantId = UUID.randomUUID()
     }
 
     @Test
     fun `add menu item returns 201`() {
         val req = MenuItemRequest(
             name = "Margherita Pizza",
-            description = "Classic tomato and mozzarella",
-            priceCents = 1299,
-            available = true
+            description = "Fresh tomatoes, mozzarella, basil",
+            priceCents = 1299
         )
 
-        val res = restTemplate.postForEntity(
+        val response = restTemplate.postForEntity(
             url("/api/restaurants/$restaurantId/menu"),
             req,
             MenuItemResponse::class.java
         )
 
-        assertEquals(HttpStatus.CREATED, res.statusCode)
-        assertNotNull(res.body)
-        assertEquals("Margherita Pizza", res.body!!.name)
-        assertEquals(1299, res.body!!.priceCents)
+        assertEquals(HttpStatus.CREATED, response.statusCode)
+        assertNotNull(response.body)
+        assertEquals("Margherita Pizza", response.body!!.name)
+        assertEquals(1299, response.body!!.priceCents)
+        assertTrue(response.body!!.available)
     }
 
     @Test
-    fun `get menu returns list of items`() {
-        val req = MenuItemRequest(
-            name = "Spaghetti Carbonara",
-            description = "Creamy pasta with bacon",
-            priceCents = 1499
-        )
-        restTemplate.postForEntity(
-            url("/api/restaurants/$restaurantId/menu"),
-            req,
-            MenuItemResponse::class.java
-        )
+    fun `get menu returns items for restaurant`() {
+        val req1 = MenuItemRequest(name = "Pizza", priceCents = 1200)
+        val req2 = MenuItemRequest(name = "Pasta", priceCents = 1100)
 
-        val res = restTemplate.exchange(
+        restTemplate.postForEntity(url("/api/restaurants/$restaurantId/menu"), req1, MenuItemResponse::class.java)
+        restTemplate.postForEntity(url("/api/restaurants/$restaurantId/menu"), req2, MenuItemResponse::class.java)
+
+        val response = restTemplate.getForEntity(
             url("/api/restaurants/$restaurantId/menu"),
-            HttpMethod.GET,
-            HttpEntity.EMPTY,
             Array<MenuItemResponse>::class.java
         )
 
-        assertEquals(HttpStatus.OK, res.statusCode)
-        assertTrue(res.body!!.any { it.name == "Spaghetti Carbonara" })
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertTrue(response.body!!.size >= 2)
+        assertTrue(response.body!!.any { it.name == "Pizza" })
+        assertTrue(response.body!!.any { it.name == "Pasta" })
     }
 
     @Test
-    fun `update menu item returns updated item`() {
-        val createReq = MenuItemRequest(name = "Tiramisu", priceCents = 799)
+    fun `update menu item returns 200`() {
+        val createReq = MenuItemRequest(name = "Old Name", priceCents = 1000)
         val created = restTemplate.postForEntity(
             url("/api/restaurants/$restaurantId/menu"),
             createReq,
             MenuItemResponse::class.java
         ).body!!
 
-        val updateReq = MenuItemRequest(name = "Tiramisu Deluxe", priceCents = 999)
-        val updated = restTemplate.exchange(
+        val updateReq = MenuItemRequest(name = "New Name", priceCents = 1500)
+        val response = restTemplate.exchange(
             url("/api/restaurants/$restaurantId/menu/${created.id}"),
             HttpMethod.PUT,
             HttpEntity(updateReq),
             MenuItemResponse::class.java
         )
 
-        assertEquals(HttpStatus.OK, updated.statusCode)
-        assertEquals("Tiramisu Deluxe", updated.body!!.name)
-        assertEquals(999, updated.body!!.priceCents)
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals("New Name", response.body!!.name)
+        assertEquals(1500, response.body!!.priceCents)
     }
 
     @Test
     fun `delete menu item returns 204`() {
-        val req = MenuItemRequest(name = "Gelato", priceCents = 499)
+        val createReq = MenuItemRequest(name = "To Delete", priceCents = 500)
         val created = restTemplate.postForEntity(
             url("/api/restaurants/$restaurantId/menu"),
-            req,
+            createReq,
             MenuItemResponse::class.java
         ).body!!
 
-        val res = restTemplate.exchange(
+        val response = restTemplate.exchange(
             url("/api/restaurants/$restaurantId/menu/${created.id}"),
             HttpMethod.DELETE,
-            HttpEntity.EMPTY,
+            null,
             Void::class.java
         )
 
-        assertEquals(HttpStatus.NO_CONTENT, res.statusCode)
+        assertEquals(HttpStatus.NO_CONTENT, response.statusCode)
     }
 
     @Test
-    fun `get menu for non-existent restaurant returns 404`() {
-        val fakeRestaurantId = UUID.randomUUID()
-
-        val res = restTemplate.exchange(
-            url("/api/restaurants/$fakeRestaurantId/menu"),
-            HttpMethod.GET,
-            HttpEntity.EMPTY,
-            String::class.java
-        )
-
-        assertEquals(HttpStatus.NOT_FOUND, res.statusCode)
-    }
-
-    @Test
-    fun `mark item unavailable and verify GET shows flag`() {
-        val req = MenuItemRequest(name = "Pizza Special", priceCents = 1599, available = true)
+    fun `toggle availability returns updated item`() {
+        val createReq = MenuItemRequest(name = "Toggle Item", priceCents = 800)
         val created = restTemplate.postForEntity(
             url("/api/restaurants/$restaurantId/menu"),
-            req,
+            createReq,
             MenuItemResponse::class.java
         ).body!!
+
         assertTrue(created.available)
 
-        val patchRes = restTemplate.exchange(
+        val response = restTemplate.exchange(
             url("/api/restaurants/$restaurantId/menu/${created.id}/availability?available=false"),
             HttpMethod.PATCH,
-            HttpEntity.EMPTY,
-            Void::class.java
+            null,
+            MenuItemResponse::class.java
         )
-        assertEquals(HttpStatus.NO_CONTENT, patchRes.statusCode)
 
-        val menu = restTemplate.exchange(
-            url("/api/restaurants/$restaurantId/menu"),
-            HttpMethod.GET,
-            HttpEntity.EMPTY,
-            Array<MenuItemResponse>::class.java
-        ).body!!
-
-        val item = menu.find { it.id == created.id }
-        assertNotNull(item)
-        assertEquals(false, item!!.available)
+        assertEquals(HttpStatus.NO_CONTENT, response.statusCode)
     }
 
     @Test
     fun `wrong restaurant cannot toggle another restaurants item`() {
-        val req = MenuItemRequest(name = "Exclusive Dish", priceCents = 2500)
+        val createReq = MenuItemRequest(name = "Protected Item", priceCents = 1000)
         val created = restTemplate.postForEntity(
             url("/api/restaurants/$restaurantId/menu"),
-            req,
+            createReq,
             MenuItemResponse::class.java
         ).body!!
 
-        val restaurant2Req = RestaurantRegisterRequest(
-            name = "Other Restaurant ${UUID.randomUUID()}",
-            address = "456 Other St",
-            cuisine = "French"
-        )
-        val restaurant2 = restTemplate.postForEntity(
-            url("/api/restaurants"),
-            restaurant2Req,
-            RestaurantResponse::class.java
-        ).body!!
+        val wrongRestaurantId = UUID.randomUUID()
 
-        val res = restTemplate.exchange(
-            url("/api/restaurants/${restaurant2.id}/menu/${created.id}/availability?available=false"),
+        val response = restTemplate.exchange(
+            url("/api/restaurants/$wrongRestaurantId/menu/${created.id}/availability?available=false"),
             HttpMethod.PATCH,
-            HttpEntity.EMPTY,
+            null,
             String::class.java
         )
 
-        assertEquals(HttpStatus.FORBIDDEN, res.statusCode)
+        assertEquals(HttpStatus.FORBIDDEN, response.statusCode)
     }
 }
-

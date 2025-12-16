@@ -65,7 +65,7 @@ data class OrderResponse(
 data class OrderHistoryResponse(
     val orderId: UUID,
     val totalCents: Int?,
-    val restaurantName: String,
+    val restaurantId: UUID,
     val status: OrderStatus,
     val itemCount: Int
 )
@@ -81,8 +81,8 @@ fun OrderItem.toResponse() = OrderItemResponse(
 
 fun DeliveryOrder.toResponse() = OrderResponse(
     id = this.id,
-    userId = this.user.id,
-    restaurantId = this.restaurant.id,
+    userId = this.userId,
+    restaurantId = this.restaurantId,
     driverId = this.driverId,
     status = this.status,
     itemsSubtotalCents = this.itemsSubtotalCents,
@@ -101,7 +101,7 @@ fun DeliveryOrder.toResponse() = OrderResponse(
 fun DeliveryOrder.toHistoryResponse() = OrderHistoryResponse(
     orderId = this.id,
     totalCents = this.totalCents,
-    restaurantName = this.restaurant.name,
+    restaurantId = this.restaurantId,
     status = this.status,
     itemCount = this.items.size
 )

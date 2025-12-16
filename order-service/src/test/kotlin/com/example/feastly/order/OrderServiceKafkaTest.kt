@@ -1,10 +1,9 @@
 package com.example.feastly.order
 
+import com.example.feastly.client.RestaurantClient
+import com.example.feastly.client.UserClient
 import com.example.feastly.payment.PaymentStatus
-import com.example.feastly.restaurant.Restaurant
-import com.example.feastly.user.User
 import com.feastly.events.OrderAcceptedEvent
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
@@ -20,9 +19,6 @@ import org.springframework.kafka.core.KafkaTemplate
 import java.util.Optional
 import java.util.UUID
 
-/**
- * Unit tests to verify OrderService publishes Kafka events correctly.
- */
 @ExtendWith(MockitoExtension::class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class OrderServiceKafkaTest {
@@ -33,31 +29,15 @@ class OrderServiceKafkaTest {
     @Mock
     private lateinit var kafkaTemplate: KafkaTemplate<String, Any>
 
-    private lateinit var testUser: User
-    private lateinit var testRestaurant: Restaurant
-
-    @BeforeEach
-    fun setUp() {
-        testUser = User(
-            email = "test@test.com",
-            password = "hashedpassword"
-        )
-
-        testRestaurant = Restaurant(
-            name = "Test Restaurant",
-            address = "123 Test St",
-            cuisine = "Italian"
-        )
-    }
-
     @Test
     fun `acceptOrder publishes OrderAcceptedEvent to Kafka`() {
         val orderId = UUID.randomUUID()
-        val restaurantId = testRestaurant.id
+        val userId = UUID.randomUUID()
+        val restaurantId = UUID.randomUUID()
 
         val order = DeliveryOrder(
-            user = testUser,
-            restaurant = testRestaurant,
+            userId = userId,
+            restaurantId = restaurantId,
             status = OrderStatus.SUBMITTED,
             paymentStatus = PaymentStatus.PENDING
         )
@@ -85,8 +65,8 @@ class OrderServiceKafkaTest {
     private fun createMinimalOrderService(): OrderService {
         return OrderService(
             orderRepository = orderRepository,
-            userRepository = org.mockito.Mockito.mock(),
-            restaurantRepository = org.mockito.Mockito.mock(),
+            userClient = org.mockito.Mockito.mock(UserClient::class.java),
+            restaurantClient = org.mockito.Mockito.mock(RestaurantClient::class.java),
             menuItemRepository = org.mockito.Mockito.mock(),
             paymentService = org.mockito.Mockito.mock(),
             pricingService = org.mockito.Mockito.mock(),

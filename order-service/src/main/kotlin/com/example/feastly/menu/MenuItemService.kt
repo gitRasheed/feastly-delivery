@@ -1,9 +1,9 @@
 package com.example.feastly.menu
 
+import com.example.feastly.client.RestaurantClient
 import com.example.feastly.common.MenuItemNotFoundException
 import com.example.feastly.common.RestaurantNotFoundException
 import com.example.feastly.common.UnauthorizedRestaurantAccessException
-import com.example.feastly.restaurant.RestaurantRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -13,15 +13,16 @@ import java.util.UUID
 @Transactional
 class MenuItemService(
     private val menuItemRepository: MenuItemRepository,
-    private val restaurantRepository: RestaurantRepository
+    private val restaurantClient: RestaurantClient
 ) {
 
     fun addMenuItem(restaurantId: UUID, request: MenuItemRequest): MenuItem {
-        val restaurant = restaurantRepository.findByIdOrNull(restaurantId)
-            ?: throw RestaurantNotFoundException(restaurantId)
+        if (!restaurantClient.existsById(restaurantId)) {
+            throw RestaurantNotFoundException(restaurantId)
+        }
 
         val menuItem = MenuItem(
-            restaurant = restaurant,
+            restaurantId = restaurantId,
             name = request.name,
             description = request.description,
             priceCents = request.priceCents,
@@ -37,7 +38,7 @@ class MenuItemService(
 
         val updated = MenuItem(
             id = menuItem.id,
-            restaurant = menuItem.restaurant,
+            restaurantId = menuItem.restaurantId,
             name = request.name,
             description = request.description,
             priceCents = request.priceCents,
@@ -59,7 +60,7 @@ class MenuItemService(
         val menuItem = menuItemRepository.findByIdOrNull(itemId)
             ?: throw MenuItemNotFoundException(itemId)
 
-        if (menuItem.restaurant.id != restaurantId) {
+        if (menuItem.restaurantId != restaurantId) {
             throw UnauthorizedRestaurantAccessException(restaurantId)
         }
 
@@ -69,10 +70,9 @@ class MenuItemService(
 
     @Transactional(readOnly = true)
     fun getMenuByRestaurant(restaurantId: UUID): List<MenuItem> {
-        if (!restaurantRepository.existsById(restaurantId)) {
+        if (!restaurantClient.existsById(restaurantId)) {
             throw RestaurantNotFoundException(restaurantId)
         }
         return menuItemRepository.findByRestaurantId(restaurantId)
     }
 }
-
