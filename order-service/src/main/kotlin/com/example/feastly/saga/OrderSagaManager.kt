@@ -10,8 +10,6 @@ import com.feastly.events.KafkaTopics
 import com.feastly.events.OrderPlacedEvent
 import com.feastly.events.RestaurantOrderAcceptedEvent
 import com.feastly.events.RestaurantOrderRequest
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.JsonNode
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.kafka.core.KafkaTemplate
@@ -24,8 +22,7 @@ import java.time.Instant
 @Component
 class OrderSagaManager(
     private val orderRepository: OrderRepository,
-    private val kafkaTemplate: KafkaTemplate<String, Any>,
-    private val objectMapper: ObjectMapper
+    private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
     private val log = LoggerFactory.getLogger(OrderSagaManager::class.java)
 
@@ -40,8 +37,14 @@ class OrderSagaManager(
         containerFactory = "kafkaListenerContainerFactory"
     )
     @Transactional
-    fun onOrderPlaced(message: String) {
-        val event = objectMapper.readValue(message, OrderPlacedEvent::class.java)
+    fun onOrderEvent(event: Any) {
+        when (event) {
+            is OrderPlacedEvent -> handleOrderPlaced(event)
+            else -> log.debug("Ignoring event type on order.events: {}", event::class.simpleName)
+        }
+    }
+
+    private fun handleOrderPlaced(event: OrderPlacedEvent) {
         log.info("Saga received OrderPlacedEvent for order {}", event.orderId)
 
         val order = orderRepository.findById(event.orderId).orElse(null) ?: run {
@@ -65,8 +68,14 @@ class OrderSagaManager(
         containerFactory = "kafkaListenerContainerFactory"
     )
     @Transactional
-    fun onRestaurantOrderAccepted(message: String) {
-        val event = objectMapper.readValue(message, RestaurantOrderAcceptedEvent::class.java)
+    fun onRestaurantEvent(event: Any) {
+        when (event) {
+            is RestaurantOrderAcceptedEvent -> handleRestaurantOrderAccepted(event)
+            else -> log.debug("Ignoring event type on restaurant.events: {}", event::class.simpleName)
+        }
+    }
+
+    private fun handleRestaurantOrderAccepted(event: RestaurantOrderAcceptedEvent) {
         log.info("Saga received RestaurantOrderAcceptedEvent for order {}", event.orderId)
 
         val order = orderRepository.findById(event.orderId).orElse(null) ?: run {
@@ -78,7 +87,6 @@ class OrderSagaManager(
             log.debug("Order {} already past ACCEPTED (status={}), skipping", event.orderId, order.status)
             return
         }
-
 
         order.status = OrderStatus.AWAITING_DRIVER
         order.dispatchAttemptCount = 1
@@ -124,25 +132,16 @@ class OrderSagaManager(
         containerFactory = "kafkaListenerContainerFactory"
     )
     @Transactional
-    fun onDispatchEvent(message: String) {
-        val json = objectMapper.readTree(message)
-        val orderId = json.get("orderId")?.asText() ?: return
-
-        when {
-            json.has("reason") -> handleDeliveryFailed(json)
-            json.has("driverId") && !json.has("reason") -> {
-                val order = orderRepository.findById(java.util.UUID.fromString(orderId)).orElse(null)
-                when (order?.status) {
-                    OrderStatus.AWAITING_DRIVER -> handleDriverAssigned(json)
-                    OrderStatus.DRIVER_ASSIGNED, OrderStatus.DISPATCHED -> handleDeliveryCompleted(json)
-                    else -> {}
-                }
-            }
+    fun onDispatchEvent(event: Any) {
+        when (event) {
+            is DriverAssignedEvent -> handleDriverAssigned(event)
+            is DeliveryCompletedEvent -> handleDeliveryCompleted(event)
+            is DriverDeliveryFailedEvent -> handleDeliveryFailed(event)
+            else -> log.debug("Ignoring event type on dispatch.events: {}", event::class.simpleName)
         }
     }
 
-    private fun handleDriverAssigned(json: JsonNode) {
-        val event = objectMapper.treeToValue(json, DriverAssignedEvent::class.java)
+    private fun handleDriverAssigned(event: DriverAssignedEvent) {
         log.info("Saga handling DriverAssignedEvent for order {}", event.orderId)
 
         val order = orderRepository.findById(event.orderId).orElse(null) ?: return
@@ -159,8 +158,7 @@ class OrderSagaManager(
         log.info("Order {} updated to DRIVER_ASSIGNED with driver {}", order.id, event.driverId)
     }
 
-    private fun handleDeliveryCompleted(json: JsonNode) {
-        val event = objectMapper.treeToValue(json, DeliveryCompletedEvent::class.java)
+    private fun handleDeliveryCompleted(event: DeliveryCompletedEvent) {
         log.info("Saga handling DeliveryCompletedEvent for order {}", event.orderId)
 
         val order = orderRepository.findById(event.orderId).orElse(null) ?: return
@@ -175,8 +173,7 @@ class OrderSagaManager(
         log.info("Order {} updated to DELIVERED", order.id)
     }
 
-    private fun handleDeliveryFailed(json: JsonNode) {
-        val event = objectMapper.treeToValue(json, DriverDeliveryFailedEvent::class.java)
+    private fun handleDeliveryFailed(event: DriverDeliveryFailedEvent) {
         log.info("Saga handling DriverDeliveryFailedEvent for order {}: {}", event.orderId, event.reason)
 
         val order = orderRepository.findById(event.orderId).orElse(null) ?: return

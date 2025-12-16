@@ -37,38 +37,33 @@ class DispatchEventListener(
         groupId = "dispatch",
         containerFactory = "kafkaListenerContainerFactory"
     )
-    fun handleOrderAccepted(record: ConsumerRecord<String, OrderAcceptedEvent>) {
+    fun handleOrderEvents(record: ConsumerRecord<String, Any>) {
         val event = record.value()
         val traceId = extractTraceId(record) ?: UUID.randomUUID().toString().take(8)
 
         try {
             MDC.put(TRACE_ID_MDC_KEY, traceId)
             
-            logger.info("Consumed OrderAcceptedEvent for order ${event.orderId}")
-
-            // Idempotency check: skip if dispatch already in progress or completed
-            if (hasExistingDispatch(event.orderId)) {
-                logger.info("Skipping duplicate event - dispatch already exists for order ${event.orderId}")
-                return
+            when (event) {
+                is OrderAcceptedEvent -> {
+                    logger.info("Consumed OrderAcceptedEvent for order ${event.orderId}")
+                    if (!hasExistingDispatch(event.orderId)) {
+                        dispatchService.startDispatch(event.orderId)
+                    } else {
+                        logger.info("Skipping duplicate event - dispatch already exists for order ${event.orderId}")
+                    }
+                }
+                else -> logger.debug("Ignoring event type: ${event::class.simpleName}")
             }
-
-            dispatchService.startDispatch(event.orderId)
         } finally {
             MDC.remove(TRACE_ID_MDC_KEY)
         }
     }
 
-    /**
-     * Extract traceId from Kafka headers if present.
-     */
-    private fun extractTraceId(record: ConsumerRecord<String, OrderAcceptedEvent>): String? {
+    private fun extractTraceId(record: ConsumerRecord<String, Any>): String? {
         return record.headers().lastHeader(TRACE_ID_HEADER)?.value()?.let { String(it) }
     }
 
-    /**
-     * Check if a dispatch attempt already exists for this order.
-     * Returns true if there's an active (PENDING/ACCEPTED) attempt.
-     */
     private fun hasExistingDispatch(orderId: UUID): Boolean {
         val existingAttempts = dispatchAttemptRepository.findByOrderId(orderId)
         return existingAttempts.any { attempt ->
@@ -84,24 +79,26 @@ class DispatchEventListener(
         groupId = "dispatch",
         containerFactory = "kafkaListenerContainerFactory"
     )
-    fun handleAssignDriver(record: ConsumerRecord<String, AssignDriverCommand>) {
-        val command = record.value()
-        val traceId = record.headers().lastHeader(TRACE_ID_HEADER)?.value()?.let { String(it) }
-            ?: UUID.randomUUID().toString().take(8)
+    fun handleAssignDriver(record: ConsumerRecord<String, Any>) {
+        val event = record.value()
+        val traceId = extractTraceId(record) ?: UUID.randomUUID().toString().take(8)
 
         try {
             MDC.put(TRACE_ID_MDC_KEY, traceId)
-            logger.info("Received AssignDriverCommand for order ${command.orderId}")
-
-
-            val driverId = UUID.randomUUID()
-
-            val event = DriverAssignedEvent(
-                orderId = command.orderId,
-                driverId = driverId
-            )
-            kafkaTemplate.send(KafkaTopics.DISPATCH_EVENTS, command.orderId.toString(), event)
-            logger.info("Emitted DriverAssignedEvent for order ${command.orderId} with driver $driverId")
+            
+            when (event) {
+                is AssignDriverCommand -> {
+                    logger.info("Received AssignDriverCommand for order ${event.orderId}")
+                    val driverId = UUID.randomUUID()
+                    val assignedEvent = DriverAssignedEvent(
+                        orderId = event.orderId,
+                        driverId = driverId
+                    )
+                    kafkaTemplate.send(KafkaTopics.DISPATCH_EVENTS, event.orderId.toString(), assignedEvent)
+                    logger.info("Emitted DriverAssignedEvent for order ${event.orderId} with driver $driverId")
+                }
+                else -> logger.warn("Unexpected event type: ${event::class.simpleName}")
+            }
         } finally {
             MDC.remove(TRACE_ID_MDC_KEY)
         }

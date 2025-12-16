@@ -7,10 +7,12 @@ import com.example.feastly.order.CreateOrderRequest
 import com.example.feastly.order.OrderItemRequest
 import com.example.feastly.order.OrderResponse
 import com.example.feastly.order.OrderStatus
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.feastly.events.DeliveryCompletedEvent
+import com.feastly.events.DriverAssignedEvent
+import com.feastly.events.DriverDeliveryFailedEvent
+import com.feastly.events.RestaurantOrderAcceptedEvent
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -18,18 +20,12 @@ import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
-import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.test.context.ActiveProfiles
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-/**
- * Integration test verifying the complete saga flow from order creation to delivery.
- * 
- * This test simulates the saga events that would normally come from external services
- * (restaurant-service, dispatch-service) to verify order status transitions.
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class SagaFlowIntegrationTest : BaseIntegrationTest() {
@@ -39,9 +35,6 @@ class SagaFlowIntegrationTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
 
     @Autowired
     private lateinit var sagaManager: OrderSagaManager
@@ -81,7 +74,7 @@ class SagaFlowIntegrationTest : BaseIntegrationTest() {
         }
         val response = restTemplate.exchange(
             url("/api/orders"),
-            org.springframework.http.HttpMethod.GET,
+            HttpMethod.GET,
             HttpEntity<Void>(headers),
             Array<OrderResponse>::class.java
         )
@@ -90,45 +83,37 @@ class SagaFlowIntegrationTest : BaseIntegrationTest() {
 
     @Test
     fun `complete saga flow - order to DELIVERED`() {
-        // Setup
         val userId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
         val driverId = UUID.randomUUID()
         val menuItemId = createMenuItem(restaurantId)
 
-        // Step 1: Create order
         val order = createOrder(userId, restaurantId, menuItemId)
         assertEquals(OrderStatus.SUBMITTED, order.status)
 
-        // Step 2: Simulate RestaurantOrderAcceptedEvent
-        val restaurantAcceptedEvent = """
-            {"orderId":"${order.id}","restaurantId":"$restaurantId","timestamp":"${java.time.Instant.now()}"}
-        """.trimIndent()
-        sagaManager.onRestaurantOrderAccepted(restaurantAcceptedEvent)
+        sagaManager.onRestaurantEvent(RestaurantOrderAcceptedEvent(
+            orderId = order.id,
+            restaurantId = restaurantId
+        ))
 
-        // Verify status is AWAITING_DRIVER
         await().atMost(5, TimeUnit.SECONDS).untilAsserted {
             assertEquals(OrderStatus.AWAITING_DRIVER, getOrderStatus(order.id, userId))
         }
 
-        // Step 3: Simulate DriverAssignedEvent
-        val driverAssignedEvent = """
-            {"orderId":"${order.id}","driverId":"$driverId","timestamp":"${java.time.Instant.now()}"}
-        """.trimIndent()
-        sagaManager.onDispatchEvent(driverAssignedEvent)
+        sagaManager.onDispatchEvent(DriverAssignedEvent(
+            orderId = order.id,
+            driverId = driverId
+        ))
 
-        // Verify status is DRIVER_ASSIGNED
         await().atMost(5, TimeUnit.SECONDS).untilAsserted {
             assertEquals(OrderStatus.DRIVER_ASSIGNED, getOrderStatus(order.id, userId))
         }
 
-        // Step 4: Simulate DeliveryCompletedEvent
-        val deliveryCompletedEvent = """
-            {"orderId":"${order.id}","driverId":"$driverId","timestamp":"${java.time.Instant.now()}"}
-        """.trimIndent()
-        sagaManager.onDispatchEvent(deliveryCompletedEvent)
+        sagaManager.onDispatchEvent(DeliveryCompletedEvent(
+            orderId = order.id,
+            driverId = driverId
+        ))
 
-        // Verify final status is DELIVERED
         await().atMost(5, TimeUnit.SECONDS).untilAsserted {
             assertEquals(OrderStatus.DELIVERED, getOrderStatus(order.id, userId))
         }
@@ -136,41 +121,40 @@ class SagaFlowIntegrationTest : BaseIntegrationTest() {
 
     @Test
     fun `delivery failed marks order as DISPATCH_FAILED`() {
-        // Setup
         val userId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
         val driverId = UUID.randomUUID()
         val menuItemId = createMenuItem(restaurantId)
 
-        // Create order
         val order = createOrder(userId, restaurantId, menuItemId)
 
-        // Simulate restaurant acceptance and driver assignment
-        sagaManager.onRestaurantOrderAccepted("""
-            {"orderId":"${order.id}","restaurantId":"$restaurantId","timestamp":"${java.time.Instant.now()}"}
-        """.trimIndent())
+        sagaManager.onRestaurantEvent(RestaurantOrderAcceptedEvent(
+            orderId = order.id,
+            restaurantId = restaurantId
+        ))
 
         await().atMost(5, TimeUnit.SECONDS).untilAsserted {
             assertEquals(OrderStatus.AWAITING_DRIVER, getOrderStatus(order.id, userId))
         }
 
-        sagaManager.onDispatchEvent("""
-            {"orderId":"${order.id}","driverId":"$driverId","timestamp":"${java.time.Instant.now()}"}
-        """.trimIndent())
+        sagaManager.onDispatchEvent(DriverAssignedEvent(
+            orderId = order.id,
+            driverId = driverId
+        ))
 
         await().atMost(5, TimeUnit.SECONDS).untilAsserted {
             assertEquals(OrderStatus.DRIVER_ASSIGNED, getOrderStatus(order.id, userId))
         }
 
-        // Simulate delivery failure
-        val deliveryFailedEvent = """
-            {"orderId":"${order.id}","driverId":"$driverId","reason":"Customer not available","timestamp":"${java.time.Instant.now()}"}
-        """.trimIndent()
-        sagaManager.onDispatchEvent(deliveryFailedEvent)
+        sagaManager.onDispatchEvent(DriverDeliveryFailedEvent(
+            orderId = order.id,
+            driverId = driverId,
+            reason = "Customer not available"
+        ))
 
-        // Verify final status is DISPATCH_FAILED
         await().atMost(5, TimeUnit.SECONDS).untilAsserted {
             assertEquals(OrderStatus.DISPATCH_FAILED, getOrderStatus(order.id, userId))
         }
     }
 }
+

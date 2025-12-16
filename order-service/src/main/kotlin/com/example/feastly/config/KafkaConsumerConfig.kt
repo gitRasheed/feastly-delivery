@@ -1,4 +1,4 @@
-package com.feastly.dispatch.config
+package com.example.feastly.config
 
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -21,8 +21,6 @@ class KafkaConsumerConfig(
     private val logger = LoggerFactory.getLogger(KafkaConsumerConfig::class.java)
 
     companion object {
-        private const val MAX_POLL_INTERVAL_MS = 300_000
-        private const val MAX_POLL_RECORDS = 10
         private const val RETRY_INTERVAL_MS = 1000L
         private const val MAX_RETRIES = 3L
     }
@@ -30,19 +28,17 @@ class KafkaConsumerConfig(
     @Bean
     fun consumerFactory(): ConsumerFactory<String, Any> {
         val jsonDeserializer = JsonDeserializer(Any::class.java).apply {
-            addTrustedPackages("com.feastly.*")
+            addTrustedPackages("com.feastly.*", "com.example.feastly.*")
             setUseTypeHeaders(true)
         }
 
         val configProps = mapOf(
             ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG to bootstrapServers,
-            ConsumerConfig.GROUP_ID_CONFIG to "dispatch",
+            ConsumerConfig.GROUP_ID_CONFIG to "order-saga",
             ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG to StringDeserializer::class.java,
             ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG to JsonDeserializer::class.java,
             ConsumerConfig.AUTO_OFFSET_RESET_CONFIG to "earliest",
-            ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG to false,
-            ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG to MAX_POLL_INTERVAL_MS,
-            ConsumerConfig.MAX_POLL_RECORDS_CONFIG to MAX_POLL_RECORDS
+            ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG to false
         )
         return DefaultKafkaConsumerFactory(configProps, StringDeserializer(), jsonDeserializer)
     }
@@ -51,12 +47,11 @@ class KafkaConsumerConfig(
     fun kafkaListenerContainerFactory(): ConcurrentKafkaListenerContainerFactory<String, Any> {
         val factory = ConcurrentKafkaListenerContainerFactory<String, Any>()
         factory.consumerFactory = consumerFactory()
-
         factory.containerProperties.ackMode = ContainerProperties.AckMode.RECORD
 
         val errorHandler = DefaultErrorHandler(
             { record, exception ->
-                logger.error("Failed to process record after retries: ${record.value()}", exception)
+                logger.error("Failed to process Kafka record: ${record.value()}", exception)
             },
             FixedBackOff(RETRY_INTERVAL_MS, MAX_RETRIES)
         )
