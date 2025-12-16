@@ -19,6 +19,8 @@ import com.example.feastly.common.UserNotFoundException
 import com.feastly.events.OrderAcceptedEvent
 import com.feastly.events.OrderPlacedEvent
 import com.example.feastly.menu.MenuItemRepository
+import com.example.feastly.outbox.OutboxEntry
+import com.example.feastly.outbox.OutboxRepository
 import com.example.feastly.payment.PaymentService
 import com.example.feastly.payment.PaymentStatus
 import org.springframework.data.repository.findByIdOrNull
@@ -38,6 +40,7 @@ class OrderService(
     private val menuItemRepository: MenuItemRepository,
     private val paymentService: PaymentService,
     private val pricingService: PricingService,
+    private val outboxRepository: OutboxRepository,
     private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
 
@@ -127,7 +130,11 @@ class OrderService(
             userId = userId,
             totalCents = finalOrder.totalCents ?: 0
         )
-        kafkaTemplate.send(ORDER_EVENTS_TOPIC, finalOrder.id.toString(), event)
+        val eventJson = """{"orderId":"${event.orderId}","userId":"${event.userId}","totalCents":${event.totalCents}}"""
+        outboxRepository.save(OutboxEntry(
+            eventType = "OrderPlacedEvent",
+            payload = eventJson
+        ))
 
         return finalOrder
     }

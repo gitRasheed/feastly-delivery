@@ -70,6 +70,7 @@ class OrderServiceKafkaTest {
             menuItemRepository = org.mockito.Mockito.mock(),
             paymentService = org.mockito.Mockito.mock(),
             pricingService = org.mockito.Mockito.mock(),
+            outboxRepository = org.mockito.Mockito.mock(),
             kafkaTemplate = kafkaTemplate
         )
     }
