@@ -19,4 +19,3 @@ docker compose -f infra/docker-compose.yml up --build
 - Postgres: localhost:5432
 - Redis: localhost:6379
 - Kafka: localhost:9092
-- Zookeeper: localhost:2181
