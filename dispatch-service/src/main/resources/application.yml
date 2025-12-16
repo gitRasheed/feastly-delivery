@@ -25,3 +25,14 @@ management:
     health:
       show-details: always
       show-components: always
+
+# HTTP fallback for cross-service REST calls
+# Set to true for admin dashboards / operational tooling only
+dispatch:
+  http-fallback:
+    enabled: ${DISPATCH_HTTP_FALLBACK_ENABLED:false}
+  order-service:
+    base-url: ${ORDER_SERVICE_URL:http://order-service:8080}
+  driver-tracking-service:
+    base-url: ${DRIVER_TRACKING_SERVICE_URL:http://driver-tracking-service:8082}
+

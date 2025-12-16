@@ -1,12 +1,14 @@
 package com.feastly.dispatch
 
 import com.feastly.events.OrderAcceptedEvent
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import java.time.Instant
 import java.util.UUID
 
@@ -16,8 +18,21 @@ class DispatchEventListenerTest {
     @Mock
     private lateinit var dispatchService: DispatchService
 
+    @Mock
+    private lateinit var dispatchAttemptRepository: DispatchAttemptRepository
+
     @InjectMocks
     private lateinit var listener: DispatchEventListener
+
+    private fun createRecord(event: OrderAcceptedEvent): ConsumerRecord<String, OrderAcceptedEvent> {
+        return ConsumerRecord(
+            "order-events",
+            0,
+            0L,
+            event.orderId.toString(),
+            event
+        )
+    }
 
     @Test
     fun `handleOrderAccepted calls DispatchService startDispatch with correct orderId`() {
@@ -30,7 +45,10 @@ class DispatchEventListenerTest {
             timestamp = Instant.now()
         )
 
-        listener.handleOrderAccepted(event)
+        // No existing dispatch attempts
+        whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
+
+        listener.handleOrderAccepted(createRecord(event))
 
         verify(dispatchService).startDispatch(orderId)
     }

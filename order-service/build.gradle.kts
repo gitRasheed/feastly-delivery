@@ -16,6 +16,7 @@ java {
 
 dependencies {
     implementation(project(":shared-events"))
+    implementation(project(":shared-security"))
     
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -31,6 +32,7 @@ dependencies {
 
     implementation("org.springframework.kafka:spring-kafka")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("net.logstash.logback:logstash-logback-encoder:7.4")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
