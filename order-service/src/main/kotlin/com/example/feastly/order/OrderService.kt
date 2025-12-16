@@ -1,5 +1,7 @@
 package com.example.feastly.order
 
+import com.example.feastly.client.RestaurantClient
+import com.example.feastly.client.UserClient
 import com.example.feastly.common.DriverAlreadyAssignedException
 import com.example.feastly.common.InvalidDeliveryStateException
 import com.example.feastly.common.InvalidOrderStateForDispatchException
@@ -17,10 +19,10 @@ import com.example.feastly.common.UserNotFoundException
 import com.feastly.events.OrderAcceptedEvent
 import com.feastly.events.OrderPlacedEvent
 import com.example.feastly.menu.MenuItemRepository
+import com.example.feastly.outbox.OutboxEntry
+import com.example.feastly.outbox.OutboxRepository
 import com.example.feastly.payment.PaymentService
 import com.example.feastly.payment.PaymentStatus
-import com.example.feastly.restaurant.RestaurantRepository
-import com.example.feastly.user.UserRepository
 import org.springframework.data.repository.findByIdOrNull
 import com.example.feastly.pricing.PricingService
 import org.springframework.kafka.core.KafkaTemplate
@@ -33,11 +35,12 @@ import java.util.UUID
 @Transactional
 class OrderService(
     private val orderRepository: OrderRepository,
-    private val userRepository: UserRepository,
-    private val restaurantRepository: RestaurantRepository,
+    private val userClient: UserClient,
+    private val restaurantClient: RestaurantClient,
     private val menuItemRepository: MenuItemRepository,
     private val paymentService: PaymentService,
     private val pricingService: PricingService,
+    private val outboxRepository: OutboxRepository,
     private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
 
@@ -46,17 +49,19 @@ class OrderService(
     }
 
     fun create(userId: UUID, request: CreateOrderRequest): DeliveryOrder {
-        val user = userRepository.findByIdOrNull(userId)
-            ?: throw UserNotFoundException(userId)
+        if (!userClient.existsById(userId)) {
+            throw UserNotFoundException(userId)
+        }
 
-        val restaurant = restaurantRepository.findByIdOrNull(request.restaurantId)
-            ?: throw RestaurantNotFoundException(request.restaurantId)
+        if (!restaurantClient.existsById(request.restaurantId)) {
+            throw RestaurantNotFoundException(request.restaurantId)
+        }
 
         val menuItems = request.items.map { itemRequest ->
             val menuItem = menuItemRepository.findByIdOrNull(itemRequest.menuItemId)
                 ?: throw MenuItemNotFoundException(itemRequest.menuItemId)
 
-            require(menuItem.restaurant.id == request.restaurantId) {
+            require(menuItem.restaurantId == request.restaurantId) {
                 "Menu item ${menuItem.id} does not belong to restaurant ${request.restaurantId}"
             }
 
@@ -68,8 +73,8 @@ class OrderService(
         }
 
         val order = DeliveryOrder(
-            user = user,
-            restaurant = restaurant,
+            userId = userId,
+            restaurantId = request.restaurantId,
             driverId = request.driverId,
             status = OrderStatus.SUBMITTED,
             paymentStatus = PaymentStatus.PENDING
@@ -125,7 +130,11 @@ class OrderService(
             userId = userId,
             totalCents = finalOrder.totalCents ?: 0
         )
-        kafkaTemplate.send(ORDER_EVENTS_TOPIC, finalOrder.id.toString(), event)
+        val eventJson = """{"orderId":"${event.orderId}","userId":"${event.userId}","totalCents":${event.totalCents}}"""
+        outboxRepository.save(OutboxEntry(
+            eventType = "OrderPlacedEvent",
+            payload = eventJson
+        ))
 
         return finalOrder
     }
@@ -230,10 +239,10 @@ class OrderService(
 
     @Transactional(readOnly = true)
     fun getOrdersForUser(userId: UUID): List<DeliveryOrder> {
-        if (!userRepository.existsById(userId)) {
+        if (!userClient.existsById(userId)) {
             throw UserNotFoundException(userId)
         }
-        return orderRepository.findByUser_Id(userId)
+        return orderRepository.findByUserId(userId)
     }
 
     fun refundOrder(orderId: UUID): DeliveryOrder {
@@ -258,7 +267,7 @@ class OrderService(
         val order = orderRepository.findByIdOrNull(orderId)
             ?: throw OrderNotFoundException(orderId)
 
-        if (order.restaurant.id != restaurantId) {
+        if (order.restaurantId != restaurantId) {
             throw UnauthorizedRestaurantAccessException(restaurantId)
         }
 

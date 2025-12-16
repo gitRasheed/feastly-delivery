@@ -30,3 +30,58 @@ data class RestaurantCreatedEvent(
     val name: String,
     override val timestamp: Instant = Instant.now()
 ) : DomainEvent
+
+/**
+ * Command sent to restaurant to prepare an order.
+ */
+data class RestaurantOrderRequest(
+    val orderId: UUID,
+    val restaurantId: UUID,
+    override val timestamp: Instant = Instant.now()
+) : DomainEvent
+
+/**
+ * Event when restaurant accepts order via saga flow.
+ */
+data class RestaurantOrderAcceptedEvent(
+    val orderId: UUID,
+    val restaurantId: UUID,
+    override val timestamp: Instant = Instant.now()
+) : DomainEvent
+
+/**
+ * Command sent to dispatch to assign a driver.
+ */
+data class AssignDriverCommand(
+    val orderId: UUID,
+    val restaurantId: UUID,
+    override val timestamp: Instant = Instant.now()
+) : DomainEvent
+
+/**
+ * Event when driver is assigned to an order.
+ */
+data class DriverAssignedEvent(
+    val orderId: UUID,
+    val driverId: UUID,
+    override val timestamp: Instant = Instant.now()
+) : DomainEvent
+
+/**
+ * Event when delivery is completed successfully.
+ */
+data class DeliveryCompletedEvent(
+    val orderId: UUID,
+    val driverId: UUID,
+    override val timestamp: Instant = Instant.now()
+) : DomainEvent
+
+/**
+ * Event when driver fails to complete delivery.
+ */
+data class DriverDeliveryFailedEvent(
+    val orderId: UUID,
+    val driverId: UUID,
+    val reason: String,
+    override val timestamp: Instant = Instant.now()
+) : DomainEvent

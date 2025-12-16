@@ -21,21 +21,24 @@ class DispatchEventListenerTest {
     @Mock
     private lateinit var dispatchAttemptRepository: DispatchAttemptRepository
 
+    @Mock
+    private lateinit var kafkaTemplate: org.springframework.kafka.core.KafkaTemplate<String, Any>
+
     @InjectMocks
     private lateinit var listener: DispatchEventListener
 
-    private fun createRecord(event: OrderAcceptedEvent): ConsumerRecord<String, OrderAcceptedEvent> {
+    private fun createRecord(event: OrderAcceptedEvent): ConsumerRecord<String, Any> {
         return ConsumerRecord(
             "order-events",
             0,
             0L,
             event.orderId.toString(),
-            event
+            event as Any
         )
     }
 
     @Test
-    fun `handleOrderAccepted calls DispatchService startDispatch with correct orderId`() {
+    fun `handleOrderEvents calls DispatchService startDispatch with correct orderId`() {
         val orderId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
 
@@ -47,7 +50,7 @@ class DispatchEventListenerTest {
 
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
-        listener.handleOrderAccepted(createRecord(event))
+        listener.handleOrderEvents(createRecord(event))
 
         verify(dispatchService).startDispatch(orderId)
     }

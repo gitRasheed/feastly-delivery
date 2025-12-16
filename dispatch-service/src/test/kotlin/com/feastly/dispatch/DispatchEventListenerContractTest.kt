@@ -31,7 +31,7 @@ class DispatchEventListenerContractTest {
         .registerModule(JavaTimeModule())
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
-    private fun createRecord(event: OrderAcceptedEvent, traceId: String? = null): ConsumerRecord<String, OrderAcceptedEvent> {
+    private fun createRecord(event: OrderAcceptedEvent, traceId: String? = null): ConsumerRecord<String, Any> {
         val headers = RecordHeaders()
         traceId?.let { headers.add("X-Trace-Id", it.toByteArray()) }
         return ConsumerRecord(
@@ -39,11 +39,11 @@ class DispatchEventListenerContractTest {
             0,
             0L,
             event.orderId.toString(),
-            event
+            event as Any
         )
     }
 
-    private fun createRecordWithHeaders(event: OrderAcceptedEvent, traceId: String): ConsumerRecord<String, OrderAcceptedEvent> {
+    private fun createRecordWithHeaders(event: OrderAcceptedEvent, traceId: String): ConsumerRecord<String, Any> {
         val headers = RecordHeaders()
         headers.add("X-Trace-Id", traceId.toByteArray())
         return ConsumerRecord(
@@ -55,7 +55,7 @@ class DispatchEventListenerContractTest {
             0,
             0,
             event.orderId.toString(),
-            event,
+            event as Any,
             headers,
             java.util.Optional.empty()
         )
@@ -81,10 +81,10 @@ class DispatchEventListenerContractTest {
     }
 
     @Test
-    fun `handleOrderAccepted invokes dispatchService with correct orderId`() {
+    fun `handleOrderEvents invokes dispatchService with correct orderId`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository)
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(
@@ -94,7 +94,7 @@ class DispatchEventListenerContractTest {
 
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
-        listener.handleOrderAccepted(createRecord(event))
+        listener.handleOrderEvents(createRecord(event))
 
         verify(dispatchService).startDispatch(orderId)
     }
@@ -103,7 +103,7 @@ class DispatchEventListenerContractTest {
     fun `full roundtrip - serialize event then consume via listener`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository)
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
@@ -116,7 +116,7 @@ class DispatchEventListenerContractTest {
 
         val json = objectMapper.writeValueAsString(originalEvent)
         val consumedEvent: OrderAcceptedEvent = objectMapper.readValue(json)
-        listener.handleOrderAccepted(createRecord(consumedEvent))
+        listener.handleOrderEvents(createRecord(consumedEvent))
 
         verify(dispatchService).startDispatch(orderId)
     }
@@ -125,7 +125,7 @@ class DispatchEventListenerContractTest {
     fun `consuming same event twice only triggers dispatch once - idempotency`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository)
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(
@@ -134,7 +134,7 @@ class DispatchEventListenerContractTest {
         )
 
 whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
-        listener.handleOrderAccepted(createRecord(event))
+        listener.handleOrderEvents(createRecord(event))
 
         val existingAttempt = DispatchAttempt(
             orderId = orderId,
@@ -143,7 +143,7 @@ whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList(
             offeredAt = Instant.now()
         )
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(listOf(existingAttempt))
-        listener.handleOrderAccepted(createRecord(event))
+        listener.handleOrderEvents(createRecord(event))
 
         verify(dispatchService, times(1)).startDispatch(orderId)
     }
@@ -152,7 +152,7 @@ whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList(
     fun `skips dispatch when accepted attempt already exists`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository)
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(
@@ -169,7 +169,7 @@ val acceptedAttempt = DispatchAttempt(
         )
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(listOf(acceptedAttempt))
 
-        listener.handleOrderAccepted(createRecord(event))
+        listener.handleOrderEvents(createRecord(event))
 
         verify(dispatchService, never()).startDispatch(any())
     }
@@ -178,7 +178,7 @@ val acceptedAttempt = DispatchAttempt(
     fun `allows re-dispatch after rejection`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository)
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(
@@ -195,7 +195,7 @@ val rejectedAttempt = DispatchAttempt(
         )
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(listOf(rejectedAttempt))
 
-        listener.handleOrderAccepted(createRecord(event))
+        listener.handleOrderEvents(createRecord(event))
 
         verify(dispatchService).startDispatch(orderId)
     }
@@ -204,7 +204,7 @@ val rejectedAttempt = DispatchAttempt(
     fun `traceId from Kafka header is used in processing`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository)
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(
@@ -214,7 +214,7 @@ val rejectedAttempt = DispatchAttempt(
 
 whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
-        listener.handleOrderAccepted(createRecordWithHeaders(event, "test-trace-123"))
+        listener.handleOrderEvents(createRecordWithHeaders(event, "test-trace-123"))
 
         verify(dispatchService).startDispatch(orderId)
     }

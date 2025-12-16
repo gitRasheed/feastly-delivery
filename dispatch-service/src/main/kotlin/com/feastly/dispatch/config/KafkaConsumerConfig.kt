@@ -1,6 +1,5 @@
 package com.feastly.dispatch.config
 
-import com.feastly.events.OrderAcceptedEvent
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.slf4j.LoggerFactory
@@ -29,10 +28,10 @@ class KafkaConsumerConfig(
     }
 
     @Bean
-    fun consumerFactory(): ConsumerFactory<String, OrderAcceptedEvent> {
-        val jsonDeserializer = JsonDeserializer(OrderAcceptedEvent::class.java).apply {
+    fun consumerFactory(): ConsumerFactory<String, Any> {
+        val jsonDeserializer = JsonDeserializer(Any::class.java).apply {
             addTrustedPackages("com.feastly.*")
-            setUseTypeMapperForKey(false)
+            setUseTypeHeaders(true)
         }
 
         val configProps = mapOf(
@@ -49,8 +48,8 @@ class KafkaConsumerConfig(
     }
 
     @Bean
-    fun kafkaListenerContainerFactory(): ConcurrentKafkaListenerContainerFactory<String, OrderAcceptedEvent> {
-        val factory = ConcurrentKafkaListenerContainerFactory<String, OrderAcceptedEvent>()
+    fun kafkaListenerContainerFactory(): ConcurrentKafkaListenerContainerFactory<String, Any> {
+        val factory = ConcurrentKafkaListenerContainerFactory<String, Any>()
         factory.consumerFactory = consumerFactory()
 
         factory.containerProperties.ackMode = ContainerProperties.AckMode.RECORD
@@ -66,4 +65,3 @@ class KafkaConsumerConfig(
         return factory
     }
 }
-

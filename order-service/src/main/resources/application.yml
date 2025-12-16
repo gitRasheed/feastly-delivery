@@ -40,3 +40,9 @@ management:
     health:
       show-details: always
       show-components: always
+
+services:
+  user:
+    url: ${SERVICES_USER_URL:http://localhost:8083}
+  restaurant:
+    url: ${SERVICES_RESTAURANT_URL:http://localhost:8084}

@@ -1,17 +1,12 @@
 package com.example.feastly.order
 
 import com.example.feastly.payment.PaymentStatus
-import com.example.feastly.restaurant.Restaurant
-import com.example.feastly.user.User
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.FetchType
 import jakarta.persistence.Id
-import jakarta.persistence.JoinColumn
-import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import java.time.Instant
@@ -21,9 +16,12 @@ enum class OrderStatus {
     SUBMITTED,
     ACCEPTED,
     PREPARING,
+    AWAITING_DRIVER,
+    DRIVER_ASSIGNED,
     DISPATCHED,
     DELIVERED,
-    CANCELLED
+    CANCELLED,
+    DISPATCH_FAILED
 }
 
 @Entity
@@ -31,13 +29,11 @@ enum class OrderStatus {
 class DeliveryOrder(
     @Id val id: UUID = UUID.randomUUID(),
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    val user: User,
+    @Column(name = "user_id", nullable = false)
+    val userId: UUID,
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "restaurant_id", nullable = false)
-    val restaurant: Restaurant,
+    @Column(name = "restaurant_id", nullable = false)
+    val restaurantId: UUID,
 
     @Column(name = "driver_id")
     var driverId: UUID? = null,
@@ -78,5 +74,11 @@ class DeliveryOrder(
     val createdAt: Instant = Instant.now(),
 
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.now()
+    var updatedAt: Instant = Instant.now(),
+
+    @Column(name = "dispatch_attempt_count")
+    var dispatchAttemptCount: Int = 0,
+
+    @Column(name = "dispatch_sent_at")
+    var dispatchSentAt: Instant? = null
 )
