@@ -1,5 +1,4 @@
 services:
-  # Microservices
   order-service:
     build:
       context: ..
@@ -14,8 +13,6 @@ services:
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: admin
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
 
   dispatch-service:
     build:
@@ -47,14 +44,37 @@ services:
       SPRING_DATASOURCE_PASSWORD: admin
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
 
-  # Infrastructure
+  user-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile.user
+    ports:
+      - "8083:8083"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/users
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+
+  restaurant-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile.restaurant
+    ports:
+      - "8084:8084"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/restaurants
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin
+
   postgres:
     image: postgres:15-alpine
-    restart: unless-stopped
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
-      POSTGRES_MULTIPLE_DATABASES: feastly,dispatch,driver_tracking
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
@@ -63,17 +83,14 @@ services:
 
   redis:
     image: redis:7-alpine
-    restart: unless-stopped
     ports:
       - "6379:6379"
 
-  # Kafka in KRaft mode (no ZooKeeper)
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     ports:
       - "9092:9092"
     environment:
-      # KRaft mode configuration
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
@@ -86,7 +103,6 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      # Generate cluster ID on startup
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
 volumes:
