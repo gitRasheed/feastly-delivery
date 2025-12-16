@@ -66,3 +66,22 @@ data class DriverAssignedEvent(
     val driverId: UUID,
     override val timestamp: Instant = Instant.now()
 ) : DomainEvent
+
+/**
+ * Event when delivery is completed successfully.
+ */
+data class DeliveryCompletedEvent(
+    val orderId: UUID,
+    val driverId: UUID,
+    override val timestamp: Instant = Instant.now()
+) : DomainEvent
+
+/**
+ * Event when driver fails to complete delivery.
+ */
+data class DriverDeliveryFailedEvent(
+    val orderId: UUID,
+    val driverId: UUID,
+    val reason: String,
+    override val timestamp: Instant = Instant.now()
+) : DomainEvent

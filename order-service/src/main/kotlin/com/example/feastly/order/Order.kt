@@ -19,7 +19,8 @@ enum class OrderStatus {
     DRIVER_ASSIGNED,
     DISPATCHED,
     DELIVERED,
-    CANCELLED
+    CANCELLED,
+    DISPATCH_FAILED
 }
 
 @Entity

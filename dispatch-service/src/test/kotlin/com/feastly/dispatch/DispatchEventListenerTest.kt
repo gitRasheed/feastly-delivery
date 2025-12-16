@@ -21,6 +21,9 @@ class DispatchEventListenerTest {
     @Mock
     private lateinit var dispatchAttemptRepository: DispatchAttemptRepository
 
+    @Mock
+    private lateinit var kafkaTemplate: org.springframework.kafka.core.KafkaTemplate<String, Any>
+
     @InjectMocks
     private lateinit var listener: DispatchEventListener
 

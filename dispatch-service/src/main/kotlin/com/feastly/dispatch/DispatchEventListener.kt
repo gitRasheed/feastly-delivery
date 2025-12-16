@@ -1,6 +1,8 @@
 package com.feastly.dispatch
 
+import com.feastly.events.AssignDriverCommand
 import com.feastly.events.DispatchAttemptStatus
+import com.feastly.events.DriverAssignedEvent
 import com.feastly.events.KafkaTopics
 import com.feastly.events.OrderAcceptedEvent
 import jakarta.annotation.PreDestroy
@@ -8,6 +10,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.kafka.annotation.KafkaListener
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
 import java.util.UUID
 
@@ -19,7 +22,8 @@ import java.util.UUID
 @Component
 class DispatchEventListener(
     private val dispatchService: DispatchService,
-    private val dispatchAttemptRepository: DispatchAttemptRepository
+    private val dispatchAttemptRepository: DispatchAttemptRepository,
+    private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
     private val logger = LoggerFactory.getLogger(DispatchEventListener::class.java)
 
@@ -72,6 +76,35 @@ class DispatchEventListener(
                 DispatchAttemptStatus.PENDING,
                 DispatchAttemptStatus.ACCEPTED
             )
+        }
+    }
+
+    @KafkaListener(
+        topics = [KafkaTopics.DISPATCH_ASSIGN_DRIVER],
+        groupId = "dispatch",
+        containerFactory = "kafkaListenerContainerFactory"
+    )
+    fun handleAssignDriver(record: ConsumerRecord<String, AssignDriverCommand>) {
+        val command = record.value()
+        val traceId = record.headers().lastHeader(TRACE_ID_HEADER)?.value()?.let { String(it) }
+            ?: UUID.randomUUID().toString().take(8)
+
+        try {
+            MDC.put(TRACE_ID_MDC_KEY, traceId)
+            logger.info("Received AssignDriverCommand for order ${command.orderId}")
+
+            // Assign a dummy driver (in real system, would use dispatch logic)
+            val driverId = UUID.randomUUID()
+
+            // Emit DriverAssignedEvent
+            val event = DriverAssignedEvent(
+                orderId = command.orderId,
+                driverId = driverId
+            )
+            kafkaTemplate.send(KafkaTopics.DISPATCH_EVENTS, command.orderId.toString(), event)
+            logger.info("Emitted DriverAssignedEvent for order ${command.orderId} with driver $driverId")
+        } finally {
+            MDC.remove(TRACE_ID_MDC_KEY)
         }
     }
 
