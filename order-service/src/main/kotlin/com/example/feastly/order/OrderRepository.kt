@@ -5,4 +5,5 @@ import java.util.UUID
 
 interface OrderRepository : JpaRepository<DeliveryOrder, UUID> {
     fun findByUserId(userId: UUID): List<DeliveryOrder>
+    fun findByStatus(status: OrderStatus): List<DeliveryOrder>
 }

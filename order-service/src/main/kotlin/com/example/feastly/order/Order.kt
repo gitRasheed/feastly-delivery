@@ -16,6 +16,7 @@ enum class OrderStatus {
     SUBMITTED,
     ACCEPTED,
     PREPARING,
+    AWAITING_DRIVER,
     DRIVER_ASSIGNED,
     DISPATCHED,
     DELIVERED,
@@ -73,5 +74,11 @@ class DeliveryOrder(
     val createdAt: Instant = Instant.now(),
 
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: Instant = Instant.now()
+    var updatedAt: Instant = Instant.now(),
+
+    @Column(name = "dispatch_attempt_count")
+    var dispatchAttemptCount: Int = 0,
+
+    @Column(name = "dispatch_sent_at")
+    var dispatchSentAt: Instant? = null
 )
