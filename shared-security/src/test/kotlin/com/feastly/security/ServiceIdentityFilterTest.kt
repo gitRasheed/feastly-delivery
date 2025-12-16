@@ -28,7 +28,6 @@ class ServiceIdentityFilterTest {
         filter.doFilter(request, response, chain)
 
         assertEquals("dispatch-service", capturedServiceName)
-        // MDC should be cleaned up after filter
         assertNull(MDC.get("callerService"))
     }
 

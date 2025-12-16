@@ -41,8 +41,6 @@ class RestClientAdaptersTest {
         objectMapper = jacksonObjectMapper().registerModule(JavaTimeModule())
     }
 
-    // ========== RestOrderQueryAdapter Tests ==========
-
     @Test
     fun `getOrderInfo returns order info on success`() {
         val orderId = UUID.randomUUID()
@@ -79,8 +77,6 @@ class RestClientAdaptersTest {
         mockServer.verify()
         assertNull(result)
     }
-
-    // ========== RestDriverStatusAdapter Tests ==========
 
     @Test
     fun `getAvailableDrivers returns list of drivers on success`() {

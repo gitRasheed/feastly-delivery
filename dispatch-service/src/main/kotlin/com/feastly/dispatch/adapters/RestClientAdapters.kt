@@ -12,19 +12,14 @@ import org.springframework.context.annotation.Primary
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.client.HttpClientErrorException
+import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestTemplate
 import java.time.Instant
 import java.util.UUID
 
 /**
- * REST client adapter for querying order information from order-service.
- * 
- * **IMPORTANT: Fallback only** - Use only for admin dashboards, retries, or 
- * operational tooling. Primary inter-service communication should use Kafka events.
- * 
- * Enable via: `dispatch.http-fallback.enabled=true`
- * 
- * TODO: Replace with OpenFeign for declarative HTTP clients
+ * REST client for querying order info from order-service.
+ * Fallback only - enable via `dispatch.http-fallback.enabled=true`.
  */
 @Component
 @Primary
@@ -38,51 +33,26 @@ class RestOrderQueryAdapter(
     private val logger = LoggerFactory.getLogger(RestOrderQueryAdapter::class.java)
 
     override fun getOrderInfo(orderId: UUID): OrderInfo? {
+        val url = "$orderServiceBaseUrl/api/internal/orders/$orderId/dispatch-info"
+        logger.debug("Fetching order info from {}", url)
         return try {
-            val url = "$orderServiceBaseUrl/api/internal/orders/$orderId/dispatch-info"
-            logger.debug("Fetching order info from $url")
             restTemplate.getForObject(url, OrderInfo::class.java)
         } catch (e: HttpClientErrorException) {
-            if (e.statusCode == HttpStatus.NOT_FOUND) {
-                logger.warn("Order $orderId not found in order-service")
-                null
-            } else {
-                logger.error("Failed to fetch order $orderId: ${e.message}")
-                throw e
-            }
-        } catch (e: Exception) {
-            logger.error("Error fetching order $orderId from order-service", e)
-            throw e
+            if (e.statusCode == HttpStatus.NOT_FOUND) null else throw e
         }
     }
 
     override fun updateOrderDriver(orderId: UUID, driverId: UUID?) {
-        try {
-            val url = "$orderServiceBaseUrl/api/orders/$orderId/assign-driver?driverId=$driverId"
-            logger.debug("Updating order $orderId driver to $driverId")
-            restTemplate.patchForObject(url, null, Void::class.java)
-        } catch (e: Exception) {
-            logger.error("Error updating driver for order $orderId", e)
-            throw e
-        }
+        val url = "$orderServiceBaseUrl/api/orders/$orderId/assign-driver?driverId=$driverId"
+        restTemplate.patchForObject(url, null, Void::class.java)
     }
 
     override fun updateOrderStatus(orderId: UUID, status: OrderStatus) {
-        try {
-            val url = "$orderServiceBaseUrl/api/orders/$orderId/status"
-            logger.debug("Updating order $orderId status to $status")
-            restTemplate.patchForObject(url, mapOf("status" to status.name), Void::class.java)
-        } catch (e: Exception) {
-            logger.error("Error updating status for order $orderId", e)
-            throw e
-        }
+        val url = "$orderServiceBaseUrl/api/orders/$orderId/status"
+        restTemplate.patchForObject(url, mapOf("status" to status.name), Void::class.java)
     }
 }
 
-/**
- * DTO for driver status from driver-tracking-service REST API.
- * Maps to the service's DriverStatusResponse format.
- */
 data class DriverStatusDto(
     val driverId: UUID,
     val isAvailable: Boolean,
@@ -90,20 +60,12 @@ data class DriverStatusDto(
     val longitude: Double,
     val lastUpdated: Instant
 ) {
-    fun toAvailableDriver() = AvailableDriver(
-        driverId = driverId,
-        latitude = latitude,
-        longitude = longitude
-    )
+    fun toAvailableDriver() = AvailableDriver(driverId, latitude, longitude)
 }
 
 /**
- * REST client adapter for querying driver availability from driver-tracking-service.
- * 
- * **IMPORTANT: Fallback only** - Use only for admin dashboards, retries, or 
- * operational tooling. Primary inter-service communication should use Kafka events.
- * 
- * Enable via: `dispatch.http-fallback.enabled=true`
+ * REST client for querying driver availability from driver-tracking-service.
+ * Fallback only - enable via `dispatch.http-fallback.enabled=true`.
  */
 @Component
 @Primary
@@ -117,13 +79,13 @@ class RestDriverStatusAdapter(
     private val logger = LoggerFactory.getLogger(RestDriverStatusAdapter::class.java)
 
     override fun getAvailableDrivers(): List<AvailableDriver> {
+        val url = "$driverTrackingBaseUrl/api/drivers/available"
+        logger.debug("Fetching available drivers from {}", url)
         return try {
-            val url = "$driverTrackingBaseUrl/api/drivers/available"
-            logger.debug("Fetching available drivers from $url")
-            val response = restTemplate.getForObject(url, Array<DriverStatusDto>::class.java)
-            response?.map { it.toAvailableDriver() } ?: emptyList()
-        } catch (e: Exception) {
-            logger.error("Error fetching available drivers", e)
+            restTemplate.getForObject(url, Array<DriverStatusDto>::class.java)
+                ?.map { it.toAvailableDriver() } ?: emptyList()
+        } catch (e: HttpStatusCodeException) {
+            logger.warn("Failed to fetch drivers: {}", e.statusCode)
             emptyList()
         }
     }

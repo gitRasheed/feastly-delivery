@@ -35,11 +35,11 @@ class DispatchEventListenerContractTest {
         val headers = RecordHeaders()
         traceId?.let { headers.add("X-Trace-Id", it.toByteArray()) }
         return ConsumerRecord(
-            "order-events",    // topic
-            0,                 // partition
-            0L,                // offset
-            event.orderId.toString(),  // key
-            event              // value
+            "order-events",
+            0,
+            0L,
+            event.orderId.toString(),
+            event
         )
     }
 
@@ -66,7 +66,6 @@ class DispatchEventListenerContractTest {
         val orderId = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc")
         val restaurantId = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd")
 
-        // JSON as produced by order-service
         val producerJson = """
             {
                 "orderId": "$orderId",
@@ -93,7 +92,6 @@ class DispatchEventListenerContractTest {
             restaurantId = UUID.randomUUID()
         )
 
-        // No existing dispatch
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
         listener.handleOrderAccepted(createRecord(event))
@@ -110,25 +108,16 @@ class DispatchEventListenerContractTest {
         val orderId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
 
-        // Producer creates event
         val originalEvent = OrderAcceptedEvent(
             orderId = orderId,
             restaurantId = restaurantId
         )
-
-        // No existing dispatch
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
-        // Serialize as producer would
         val json = objectMapper.writeValueAsString(originalEvent)
-
-        // Consumer deserializes
         val consumedEvent: OrderAcceptedEvent = objectMapper.readValue(json)
-
-        // Consumer processes via record
         listener.handleOrderAccepted(createRecord(consumedEvent))
 
-        // Verify dispatch was triggered with correct orderId
         verify(dispatchService).startDispatch(orderId)
     }
 
@@ -144,11 +133,9 @@ class DispatchEventListenerContractTest {
             restaurantId = UUID.randomUUID()
         )
 
-        // First consumption - no existing dispatch
-        whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
+whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
         listener.handleOrderAccepted(createRecord(event))
 
-        // Second consumption - dispatch already in progress
         val existingAttempt = DispatchAttempt(
             orderId = orderId,
             driverId = UUID.randomUUID(),
@@ -158,7 +145,6 @@ class DispatchEventListenerContractTest {
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(listOf(existingAttempt))
         listener.handleOrderAccepted(createRecord(event))
 
-        // dispatchService.startDispatch should only be called once
         verify(dispatchService, times(1)).startDispatch(orderId)
     }
 
@@ -174,8 +160,7 @@ class DispatchEventListenerContractTest {
             restaurantId = UUID.randomUUID()
         )
 
-        // Already accepted dispatch exists
-        val acceptedAttempt = DispatchAttempt(
+val acceptedAttempt = DispatchAttempt(
             orderId = orderId,
             driverId = UUID.randomUUID(),
             status = DispatchAttemptStatus.ACCEPTED,
@@ -186,7 +171,6 @@ class DispatchEventListenerContractTest {
 
         listener.handleOrderAccepted(createRecord(event))
 
-        // Should not trigger dispatch
         verify(dispatchService, never()).startDispatch(any())
     }
 
@@ -202,8 +186,7 @@ class DispatchEventListenerContractTest {
             restaurantId = UUID.randomUUID()
         )
 
-        // Previous attempt was rejected
-        val rejectedAttempt = DispatchAttempt(
+val rejectedAttempt = DispatchAttempt(
             orderId = orderId,
             driverId = UUID.randomUUID(),
             status = DispatchAttemptStatus.REJECTED,
@@ -214,7 +197,6 @@ class DispatchEventListenerContractTest {
 
         listener.handleOrderAccepted(createRecord(event))
 
-        // Should trigger dispatch (rejected attempts don't block)
         verify(dispatchService).startDispatch(orderId)
     }
 
@@ -230,9 +212,8 @@ class DispatchEventListenerContractTest {
             restaurantId = UUID.randomUUID()
         )
 
-        whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
+whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
-        // Include traceId in header
         listener.handleOrderAccepted(createRecordWithHeaders(event, "test-trace-123"))
 
         verify(dispatchService).startDispatch(orderId)

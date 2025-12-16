@@ -45,7 +45,6 @@ class DispatchEventListenerTest {
             timestamp = Instant.now()
         )
 
-        // No existing dispatch attempts
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
         listener.handleOrderAccepted(createRecord(event))

@@ -53,10 +53,8 @@ class KafkaConsumerConfig(
         val factory = ConcurrentKafkaListenerContainerFactory<String, OrderAcceptedEvent>()
         factory.consumerFactory = consumerFactory()
 
-        // Manual commit for reliability
         factory.containerProperties.ackMode = ContainerProperties.AckMode.RECORD
 
-        // Error handler with retry (3 attempts, 1 second interval)
         val errorHandler = DefaultErrorHandler(
             { record, exception ->
                 logger.error("Failed to process record after retries: ${record.value()}", exception)

@@ -27,20 +27,15 @@ class OrderServiceContractTest {
         val restaurantId = UUID.randomUUID()
         val timestamp = Instant.now()
 
-        // Simulate event creation as order-service would
         val event = OrderAcceptedEvent(
             orderId = orderId,
             restaurantId = restaurantId,
             timestamp = timestamp
         )
 
-        // Serialize (producer side)
         val json = objectMapper.writeValueAsString(event)
-
-        // Deserialize (consumer side - as dispatch-service would)
         val consumed: OrderAcceptedEvent = objectMapper.readValue(json)
 
-        // Assert schema compatibility
         assertEquals(orderId, consumed.orderId)
         assertEquals(restaurantId, consumed.restaurantId)
         assertEquals(timestamp, consumed.timestamp)
@@ -51,7 +46,6 @@ class OrderServiceContractTest {
         val orderId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
         val restaurantId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 
-        // Pre-built JSON representing what order-service produces
         val producerJson = """
             {
                 "orderId": "$orderId",
@@ -60,7 +54,6 @@ class OrderServiceContractTest {
             }
         """.trimIndent()
 
-        // Consumer deserializes
         val event: OrderAcceptedEvent = objectMapper.readValue(producerJson)
 
         assertEquals(orderId, event.orderId)

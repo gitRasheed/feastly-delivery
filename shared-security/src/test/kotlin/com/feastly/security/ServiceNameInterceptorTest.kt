@@ -26,9 +26,7 @@ class ServiceNameInterceptorTest {
 
         try {
             interceptor.intercept(request, body, execution)
-        } catch (e: RuntimeException) {
-            // Expected - we stopped execution after capturing header
-        }
+        } catch (_: RuntimeException) { }
 
         assertEquals("dispatch-service", headerValue)
     }
@@ -50,9 +48,7 @@ class ServiceNameInterceptorTest {
 
         try {
             interceptor.intercept(request, body, execution)
-        } catch (e: RuntimeException) {
-            // Expected
-        }
+        } catch (_: RuntimeException) { }
 
         assertEquals("trace-123", traceId)
         assertEquals("dispatch-service", serviceName)

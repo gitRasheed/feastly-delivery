@@ -79,11 +79,9 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
         val user = createUser("order-items-test-${UUID.randomUUID()}@example.com")
         val restaurant = createRestaurant("Test Restaurant ${UUID.randomUUID()}")
 
-        // Create menu items
         val pizza = createMenuItem(restaurant.id, "Pizza", 1500)
         val drink = createMenuItem(restaurant.id, "Soda", 300)
 
-        // Create order with items
         val createOrder = CreateOrderRequest(
             restaurantId = restaurant.id,
             items = listOf(
@@ -146,7 +144,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
             OrderResponse::class.java
         ).body!!
 
-        // Update status
         val patchReq = UpdateOrderStatusRequest(status = OrderStatus.ACCEPTED)
         val updated = restTemplate.patchForObject(
             url("/api/orders/${created.id}/status"),
@@ -230,8 +227,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
         assertTrue(response.statusCode.is4xxClientError || response.statusCode.is5xxServerError)
     }
 
-    // ========== Restaurant Accept/Reject Tests ==========
-
     @Test
     fun `restaurant can accept a submitted order`() {
         val user = createUser("accept-order-test-${UUID.randomUUID()}@example.com")
@@ -281,7 +276,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
 
         val order = createOrder(user.id, restaurant.id, menuItem.id)
 
-        // Accept first time
         restTemplate.exchange(
             url("/api/restaurants/${restaurant.id}/orders/${order.id}/accept"),
             HttpMethod.PATCH,
@@ -289,7 +283,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
             OrderResponse::class.java
         )
 
-        // Try to accept again
         val response = restTemplate.exchange(
             url("/api/restaurants/${restaurant.id}/orders/${order.id}/accept"),
             HttpMethod.PATCH,
@@ -308,7 +301,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
 
         val order = createOrder(user.id, restaurant.id, menuItem.id)
 
-        // Reject the order first
         restTemplate.exchange(
             url("/api/restaurants/${restaurant.id}/orders/${order.id}/reject"),
             HttpMethod.PATCH,
@@ -316,7 +308,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
             OrderResponse::class.java
         )
 
-        // Try to accept the cancelled order
         val response = restTemplate.exchange(
             url("/api/restaurants/${restaurant.id}/orders/${order.id}/accept"),
             HttpMethod.PATCH,
@@ -336,7 +327,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
 
         val order = createOrder(user.id, restaurant1.id, menuItem.id)
 
-        // Restaurant 2 tries to accept restaurant 1's order
         val response = restTemplate.exchange(
             url("/api/restaurants/${restaurant2.id}/orders/${order.id}/accept"),
             HttpMethod.PATCH,
@@ -346,8 +336,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
 
         assertEquals(HttpStatus.FORBIDDEN, response.statusCode)
     }
-
-    // ========== Driver Assignment Tests ==========
 
     private fun acceptOrder(restaurantId: UUID, orderId: UUID): OrderResponse {
         return restTemplate.exchange(
@@ -392,7 +380,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
         val driverId1 = UUID.randomUUID()
         val driverId2 = UUID.randomUUID()
 
-        // Assign first driver
         restTemplate.exchange(
             url("/api/orders/${order.id}/assign-driver?driverId=$driverId1"),
             HttpMethod.PATCH,
@@ -400,7 +387,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
             OrderResponse::class.java
         )
 
-        // Try to assign second driver
         val response = restTemplate.exchange(
             url("/api/orders/${order.id}/assign-driver?driverId=$driverId2"),
             HttpMethod.PATCH,
@@ -423,7 +409,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
         val assignedDriver = UUID.randomUUID()
         val wrongDriver = UUID.randomUUID()
 
-        // Assign driver
         restTemplate.exchange(
             url("/api/orders/${order.id}/assign-driver?driverId=$assignedDriver"),
             HttpMethod.PATCH,
@@ -431,7 +416,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
             OrderResponse::class.java
         )
 
-        // Wrong driver tries to confirm pickup
         val response = restTemplate.exchange(
             url("/api/orders/${order.id}/pickup?driverId=$wrongDriver"),
             HttpMethod.PATCH,
@@ -453,7 +437,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
 
         val driverId = UUID.randomUUID()
 
-        // Assign driver
         restTemplate.exchange(
             url("/api/orders/${order.id}/assign-driver?driverId=$driverId"),
             HttpMethod.PATCH,
@@ -461,7 +444,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
             OrderResponse::class.java
         )
 
-        // Confirm pickup
         val response = restTemplate.exchange(
             url("/api/orders/${order.id}/pickup?driverId=$driverId"),
             HttpMethod.PATCH,
@@ -493,13 +475,9 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
     }
 
-    // ========== Delivery Completion Tests ==========
-
     private fun assignDriverAndPickup(orderId: UUID, restaurantId: UUID, driverId: UUID) {
-        // Accept the order first
         acceptOrder(restaurantId, orderId)
         
-        // Assign driver
         restTemplate.exchange(
             url("/api/orders/$orderId/assign-driver?driverId=$driverId"),
             HttpMethod.PATCH,
@@ -507,7 +485,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
             OrderResponse::class.java
         )
         
-        // Confirm pickup
         restTemplate.exchange(
             url("/api/orders/$orderId/pickup?driverId=$driverId"),
             HttpMethod.PATCH,
@@ -616,8 +593,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
     }
 
-    // ========== Menu Item Availability Tests ==========
-
     @Test
     fun `ordering unavailable menu item returns 409`() {
         val user = createUser("unavailable-test-${UUID.randomUUID()}@example.com")
@@ -648,8 +623,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
         assertEquals(HttpStatus.CONFLICT, response.statusCode)
         assertTrue(response.body!!.contains("unavailable"))
     }
-
-    // ========== Payment Tests ==========
 
     @Test
     fun `creating order sets payment status to PAID`() {
@@ -725,8 +698,6 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
 
         assertEquals(HttpStatus.CONFLICT, secondRefund.statusCode)
     }
-
-    // ========== Pricing Immutability Tests ==========
 
     @Test
     fun `refund preserves pricing breakdown unchanged`() {

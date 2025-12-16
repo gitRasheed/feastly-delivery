@@ -90,7 +90,6 @@ class EventSerializationTest {
 
         val json = objectMapper.writeValueAsString(event)
         
-        // Verify JSON contains expected fields
         assert(json.contains("\"orderId\":\"$orderId\""))
         assert(json.contains("\"restaurantId\":\"$restaurantId\""))
         assert(json.contains("\"timestamp\":\"2025-01-01T12:00:00Z\""))

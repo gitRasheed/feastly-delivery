@@ -35,7 +35,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
 
     @BeforeEach
     fun setup() {
-        // Create a restaurant for menu tests
         val req = RestaurantRegisterRequest(
             name = "Test Restaurant ${UUID.randomUUID()}",
             address = "123 Test St",
@@ -68,7 +67,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
 
     @Test
     fun `get menu returns list of items`() {
-        // Add a menu item first
         val req = MenuItemRequest(
             name = "Spaghetti Carbonara",
             description = "Creamy pasta with bacon",
@@ -80,7 +78,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
             MenuItemResponse::class.java
         )
 
-        // Get menu
         val res = restTemplate.exchange(
             url("/api/restaurants/$restaurantId/menu"),
             HttpMethod.GET,
@@ -94,7 +91,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
 
     @Test
     fun `update menu item returns updated item`() {
-        // Create item
         val createReq = MenuItemRequest(name = "Tiramisu", priceCents = 799)
         val created = restTemplate.postForEntity(
             url("/api/restaurants/$restaurantId/menu"),
@@ -102,7 +98,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
             MenuItemResponse::class.java
         ).body!!
 
-        // Update item
         val updateReq = MenuItemRequest(name = "Tiramisu Deluxe", priceCents = 999)
         val updated = restTemplate.exchange(
             url("/api/restaurants/$restaurantId/menu/${created.id}"),
@@ -118,7 +113,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
 
     @Test
     fun `delete menu item returns 204`() {
-        // Create item
         val req = MenuItemRequest(name = "Gelato", priceCents = 499)
         val created = restTemplate.postForEntity(
             url("/api/restaurants/$restaurantId/menu"),
@@ -126,7 +120,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
             MenuItemResponse::class.java
         ).body!!
 
-        // Delete item
         val res = restTemplate.exchange(
             url("/api/restaurants/$restaurantId/menu/${created.id}"),
             HttpMethod.DELETE,
@@ -151,11 +144,8 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
         assertEquals(HttpStatus.NOT_FOUND, res.statusCode)
     }
 
-    // ========== Availability Tests ==========
-
     @Test
     fun `mark item unavailable and verify GET shows flag`() {
-        // Create item
         val req = MenuItemRequest(name = "Pizza Special", priceCents = 1599, available = true)
         val created = restTemplate.postForEntity(
             url("/api/restaurants/$restaurantId/menu"),
@@ -164,7 +154,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
         ).body!!
         assertTrue(created.available)
 
-        // Mark unavailable
         val patchRes = restTemplate.exchange(
             url("/api/restaurants/$restaurantId/menu/${created.id}/availability?available=false"),
             HttpMethod.PATCH,
@@ -173,7 +162,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
         )
         assertEquals(HttpStatus.NO_CONTENT, patchRes.statusCode)
 
-        // Verify GET shows unavailable
         val menu = restTemplate.exchange(
             url("/api/restaurants/$restaurantId/menu"),
             HttpMethod.GET,
@@ -188,7 +176,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
 
     @Test
     fun `wrong restaurant cannot toggle another restaurants item`() {
-        // Create item for restaurant 1
         val req = MenuItemRequest(name = "Exclusive Dish", priceCents = 2500)
         val created = restTemplate.postForEntity(
             url("/api/restaurants/$restaurantId/menu"),
@@ -196,7 +183,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
             MenuItemResponse::class.java
         ).body!!
 
-        // Create another restaurant
         val restaurant2Req = RestaurantRegisterRequest(
             name = "Other Restaurant ${UUID.randomUUID()}",
             address = "456 Other St",
@@ -208,7 +194,6 @@ class MenuItemControllerIntegrationTest : BaseIntegrationTest() {
             RestaurantResponse::class.java
         ).body!!
 
-        // Restaurant 2 tries to toggle restaurant 1's item
         val res = restTemplate.exchange(
             url("/api/restaurants/${restaurant2.id}/menu/${created.id}/availability?available=false"),
             HttpMethod.PATCH,

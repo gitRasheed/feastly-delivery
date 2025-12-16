@@ -66,7 +66,6 @@ class UserControllerIntegrationTest : BaseIntegrationTest() {
     }
 
     private fun createOrder(userId: UUID, restaurantId: UUID): OrderResponse {
-        // First create a menu item for this restaurant
         val menuItem = createMenuItem(restaurantId, "Test Item ${UUID.randomUUID()}", 1000)
 
         val headers = HttpHeaders()

@@ -12,12 +12,7 @@ import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 /**
- * Filter that extracts service identity from incoming requests.
- * 
- * Reads X-Service-Name header and adds it to MDC for logging.
- * If header is missing, logs as "UNKNOWN" caller.
- * 
- * TODO: Add authentication/verification of service identity
+ * Extracts X-Service-Name header and adds to MDC for logging.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
@@ -38,7 +33,6 @@ class ServiceIdentityFilter : Filter {
         try {
             MDC.put(SERVICE_NAME_MDC_KEY, callerService)
             
-            // Log internal API access
             if (httpRequest.requestURI.contains("/api/internal/")) {
                 logger.info("Internal API access: {} {} (caller: {})", 
                     httpRequest.method, 

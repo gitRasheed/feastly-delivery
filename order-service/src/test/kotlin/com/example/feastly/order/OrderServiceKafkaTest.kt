@@ -69,7 +69,6 @@ class OrderServiceKafkaTest {
         whenever(orderRepository.findById(orderId)).thenReturn(Optional.of(order))
         whenever(orderRepository.save(any<DeliveryOrder>())).thenAnswer { it.arguments[0] }
 
-        // Create minimal OrderService with required mocks
         val orderService = createMinimalOrderService()
 
         orderService.acceptOrder(restaurantId, orderId)
