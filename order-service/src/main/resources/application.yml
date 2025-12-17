@@ -1,6 +1,6 @@
 spring:
   application:
-    name: feastly-delivery-app
+    name: order-service
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/feastly}
     username: ${SPRING_DATASOURCE_USERNAME:admin}
@@ -35,11 +35,20 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: always
       show-components: always
+  metrics:
+    tags:
+      application: order-service
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://tempo:4318/v1/traces}
 
 services:
   user:

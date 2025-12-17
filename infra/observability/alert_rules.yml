@@ -1,0 +1,21 @@
+groups:
+  - name: microservice-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_server_requests_seconds_count{status=~"5.."}[1m]) > 1
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate"
+          description: "More than 1 error per second over the last 30s"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service is down"
+          description: "Instance {{ $labels.instance }} is unreachable"
+
