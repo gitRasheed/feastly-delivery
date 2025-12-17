@@ -31,13 +31,9 @@ management:
   tracing:
     sampling:
       probability: 1.0
-
-otel:
-  exporter:
-    otlp:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://tempo:4317}
-  service:
-    name: dispatch-service
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://tempo:4318/v1/traces}
 
 # HTTP fallback for cross-service REST calls
 # Set to true for admin dashboards / operational tooling only

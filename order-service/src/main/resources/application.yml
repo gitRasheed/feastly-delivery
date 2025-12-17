@@ -46,13 +46,9 @@ management:
   tracing:
     sampling:
       probability: 1.0
-
-otel:
-  exporter:
-    otlp:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://tempo:4317}
-  service:
-    name: order-service
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://tempo:4318/v1/traces}
 
 services:
   user:
