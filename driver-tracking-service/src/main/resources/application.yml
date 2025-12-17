@@ -28,3 +28,13 @@ management:
   metrics:
     tags:
       application: driver-tracking-service
+  tracing:
+    sampling:
+      probability: 1.0
+
+otel:
+  exporter:
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://tempo:4317}
+  service:
+    name: driver-tracking-service
