@@ -1,6 +1,5 @@
 package com.example.feastly.order
 
-import com.example.feastly.payment.PaymentStatus
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotEmpty
@@ -34,10 +33,17 @@ data class UpdateOrderStatusRequest(
     @field:NotNull val status: OrderStatus
 )
 
+/**
+ * Response DTO for order line items.
+ *
+ * All fields are derived from snapshotted data in [OrderItem],
+ * ensuring reads are independent of restaurant-service availability.
+ */
 data class OrderItemResponse(
     val id: UUID,
     val menuItemId: UUID,
-    val menuItemName: String,
+    /** Snapshotted menu item name from order creation time */
+    val menuItemName: String?,
     val quantity: Int,
     val priceCents: Int,
     val lineTotalCents: Int
@@ -45,35 +51,28 @@ data class OrderItemResponse(
 
 data class OrderResponse(
     val id: UUID,
-    val userId: UUID,
+    val customerId: UUID,
     val restaurantId: UUID,
     val driverId: UUID?,
     val status: OrderStatus,
-    val itemsSubtotalCents: Int,
-    val serviceFeeCents: Int,
+    val subtotalCents: Int,
+    val taxCents: Int,
     val deliveryFeeCents: Int,
-    val discountCents: Int,
-    val tipCents: Int,
-    val totalCents: Int?,
-    val items: List<OrderItemResponse>,
-    val paymentStatus: PaymentStatus,
-    val paymentReference: String?,
-    val createdAt: Instant,
-    val updatedAt: Instant
+    val totalCents: Int,
+    val createdAt: Instant
 )
 
 data class OrderHistoryResponse(
     val orderId: UUID,
-    val totalCents: Int?,
+    val totalCents: Int,
     val restaurantId: UUID,
-    val status: OrderStatus,
-    val itemCount: Int
+    val status: OrderStatus
 )
 
 fun OrderItem.toResponse() = OrderItemResponse(
     id = this.id,
-    menuItemId = this.menuItem.id,
-    menuItemName = this.menuItem.name,
+    menuItemId = this.menuItemId,
+    menuItemName = this.menuItemName,
     quantity = this.quantity,
     priceCents = this.priceCents,
     lineTotalCents = this.quantity * this.priceCents
@@ -81,27 +80,20 @@ fun OrderItem.toResponse() = OrderItemResponse(
 
 fun DeliveryOrder.toResponse() = OrderResponse(
     id = this.id,
-    userId = this.userId,
+    customerId = this.customerId,
     restaurantId = this.restaurantId,
     driverId = this.driverId,
-    status = this.status,
-    itemsSubtotalCents = this.itemsSubtotalCents,
-    serviceFeeCents = this.serviceFeeCents,
+    status = this.getOrderStatus(),
+    subtotalCents = this.subtotalCents,
+    taxCents = this.taxCents,
     deliveryFeeCents = this.deliveryFeeCents,
-    discountCents = this.discountCents,
-    tipCents = this.tipCents,
     totalCents = this.totalCents,
-    items = this.items.map { it.toResponse() },
-    paymentStatus = this.paymentStatus,
-    paymentReference = this.paymentReference,
-    createdAt = this.createdAt,
-    updatedAt = this.updatedAt
+    createdAt = this.createdAt
 )
 
 fun DeliveryOrder.toHistoryResponse() = OrderHistoryResponse(
     orderId = this.id,
     totalCents = this.totalCents,
     restaurantId = this.restaurantId,
-    status = this.status,
-    itemCount = this.items.size
+    status = this.getOrderStatus()
 )

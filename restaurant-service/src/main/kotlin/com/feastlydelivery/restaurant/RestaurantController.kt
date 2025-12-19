@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.LocalTime
 import java.util.UUID
 
 @RestController
@@ -30,14 +31,27 @@ class RestaurantController(private val service: RestaurantService) {
 }
 
 data class CreateRestaurantRequest(
+    val ownerUserId: UUID,
     @field:NotBlank val name: String,
-    val description: String? = null
+    val isOpen: Boolean? = false,
+    val opensAt: LocalTime? = null,
+    val closesAt: LocalTime? = null
 )
 
 data class RestaurantResponse(
     val id: UUID,
+    val ownerUserId: UUID,
     val name: String,
-    val description: String?
+    val isOpen: Boolean,
+    val opensAt: LocalTime?,
+    val closesAt: LocalTime?
 )
 
-fun Restaurant.toResponse() = RestaurantResponse(id = id, name = name, description = description)
+fun Restaurant.toResponse() = RestaurantResponse(
+    id = id,
+    ownerUserId = ownerUserId,
+    name = name,
+    isOpen = isOpen,
+    opensAt = opensAt,
+    closesAt = closesAt
+)

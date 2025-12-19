@@ -1,6 +1,7 @@
 package com.example.feastly.order
 
 import com.example.feastly.client.RestaurantClient
+import com.example.feastly.client.RestaurantMenuClient
 import com.example.feastly.client.UserClient
 import com.example.feastly.common.DriverAlreadyAssignedException
 import com.example.feastly.common.InvalidDeliveryStateException
@@ -10,37 +11,52 @@ import com.example.feastly.common.MenuItemUnavailableException
 import com.example.feastly.common.OrderAlreadyDeliveredException
 import com.example.feastly.common.OrderAlreadyFinalizedException
 import com.example.feastly.common.OrderNotFoundException
-import com.example.feastly.common.PaymentFailedException
-import com.example.feastly.common.RefundNotAllowedException
 import com.example.feastly.common.RestaurantNotFoundException
 import com.example.feastly.common.UnauthorizedDriverAccessException
 import com.example.feastly.common.UnauthorizedRestaurantAccessException
 import com.example.feastly.common.UserNotFoundException
 import com.feastly.events.OrderAcceptedEvent
-import com.feastly.events.OrderPlacedEvent
-import com.example.feastly.menu.MenuItemRepository
+import com.example.feastly.outbox.OrderEventFactory
+import com.example.feastly.outbox.OrderEventType
 import com.example.feastly.outbox.OutboxEntry
 import com.example.feastly.outbox.OutboxRepository
 import com.example.feastly.payment.PaymentService
-import com.example.feastly.payment.PaymentStatus
-import org.springframework.data.repository.findByIdOrNull
 import com.example.feastly.pricing.PricingService
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
 import java.util.UUID
 
+/**
+ * Service responsible for order lifecycle management.
+ *
+ * ## Service Dependency Model
+ *
+ * **Write-time dependencies (order creation):**
+ * - [UserClient]: Validates customer exists
+ * - [RestaurantClient]: Validates restaurant exists
+ * - [RestaurantMenuClient]: Fetches menu items for validation and price/name snapshotting
+ *
+ * **Read-time dependencies (order retrieval):**
+ * - Database only. No external service calls.
+ *
+ * This design ensures that **order reads are always available**, even when
+ * restaurant-service or other upstream services are unavailable. All required
+ * data (menu item names, prices) is snapshotted into [OrderItem] at creation time.
+ */
 @Service
 @Transactional
 class OrderService(
     private val orderRepository: OrderRepository,
+    private val orderItemRepository: OrderItemRepository,
     private val userClient: UserClient,
     private val restaurantClient: RestaurantClient,
-    private val menuItemRepository: MenuItemRepository,
+    private val restaurantMenuClient: RestaurantMenuClient,
     private val paymentService: PaymentService,
     private val pricingService: PricingService,
     private val outboxRepository: OutboxRepository,
+    private val orderEventFactory: OrderEventFactory,
     private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
 
@@ -57,8 +73,14 @@ class OrderService(
             throw RestaurantNotFoundException(request.restaurantId)
         }
 
+        // Fetch menu items from restaurant-service
+        val menuItemIds = request.items.map { it.menuItemId }
+        val fetchedItems = restaurantMenuClient.batchGetMenuItems(menuItemIds)
+        val menuItemsById = fetchedItems.associateBy { it.id }
+
+        // Validate all items exist, are available, and belong to the same restaurant
         val menuItems = request.items.map { itemRequest ->
-            val menuItem = menuItemRepository.findByIdOrNull(itemRequest.menuItemId)
+            val menuItem = menuItemsById[itemRequest.menuItemId]
                 ?: throw MenuItemNotFoundException(itemRequest.menuItemId)
 
             require(menuItem.restaurantId == request.restaurantId) {
@@ -72,25 +94,26 @@ class OrderService(
             menuItem to itemRequest.quantity
         }
 
+
         val order = DeliveryOrder(
-            userId = userId,
+            customerId = userId,
             restaurantId = request.restaurantId,
             driverId = request.driverId,
-            status = OrderStatus.SUBMITTED,
-            paymentStatus = PaymentStatus.PENDING
+            status = OrderStatus.SUBMITTED.name
         )
+
+        val savedOrder = orderRepository.save(order)
 
         val orderItems = menuItems.map { (menuItem, quantity) ->
             OrderItem(
-                order = order,
-                menuItem = menuItem,
+                orderId = savedOrder.id,
+                menuItemId = menuItem.id,
+                menuItemName = menuItem.name,
                 quantity = quantity,
                 priceCents = menuItem.priceCents
             )
         }
-        order.items.addAll(orderItems)
-
-        val savedOrder = orderRepository.save(order)
+        orderItemRepository.saveAll(orderItems)
 
         val breakdown = pricingService.priceExistingOrder(
             orderId = savedOrder.id,
@@ -98,42 +121,23 @@ class OrderService(
             tipCents = request.tipCents ?: 0
         )
 
-        savedOrder.itemsSubtotalCents = breakdown.itemsSubtotalCents
-        savedOrder.serviceFeeCents = breakdown.serviceFeeCents
+        savedOrder.subtotalCents = breakdown.itemsSubtotalCents
+        savedOrder.taxCents = breakdown.serviceFeeCents
         savedOrder.deliveryFeeCents = breakdown.deliveryFeeCents
-        savedOrder.discountCents = breakdown.discountCents
-        savedOrder.tipCents = breakdown.tipCents
         savedOrder.totalCents = breakdown.totalCents
-        savedOrder.updatedAt = Instant.now()
-
-        val paymentResult = paymentService.chargeOrder(
-            customerId = userId,
-            orderId = savedOrder.id,
-            amountCents = breakdown.totalCents
-        )
-
-        if (paymentResult.success) {
-            savedOrder.paymentStatus = PaymentStatus.PAID
-            savedOrder.paymentReference = paymentResult.providerPaymentId
-            savedOrder.updatedAt = Instant.now()
-        } else {
-            savedOrder.paymentStatus = PaymentStatus.FAILED
-            savedOrder.updatedAt = Instant.now()
-            orderRepository.save(savedOrder)
-            throw PaymentFailedException(paymentResult.message)
-        }
 
         val finalOrder = orderRepository.save(savedOrder)
 
-        val event = OrderPlacedEvent(
-            orderId = finalOrder.id,
-            userId = userId,
-            totalCents = finalOrder.totalCents ?: 0
+        val eventPayload = orderEventFactory.buildEventPayload(
+            eventType = OrderEventType.ORDER_SUBMITTED,
+            order = finalOrder,
+            items = orderItems
         )
-        val eventJson = """{"orderId":"${event.orderId}","userId":"${event.userId}","totalCents":${event.totalCents}}"""
         outboxRepository.save(OutboxEntry(
-            eventType = "OrderPlacedEvent",
-            payload = eventJson
+            aggregateId = finalOrder.id,
+            aggregateType = "Order",
+            eventType = OrderEventType.ORDER_SUBMITTED.name,
+            payload = eventPayload
         ))
 
         return finalOrder
@@ -145,8 +149,7 @@ class OrderService(
 
         requireNotTerminal(order)
 
-        order.status = newStatus
-        order.updatedAt = Instant.now()
+        order.setOrderStatus(newStatus)
 
         return orderRepository.save(order)
     }
@@ -155,8 +158,7 @@ class OrderService(
         val order = findOrderAndValidateRestaurant(restaurantId, orderId)
         requireSubmittedStatus(order)
 
-        order.status = OrderStatus.ACCEPTED
-        order.updatedAt = Instant.now()
+        order.setOrderStatus(OrderStatus.ACCEPTED)
 
         val saved = orderRepository.save(order)
 
@@ -173,8 +175,7 @@ class OrderService(
         val order = findOrderAndValidateRestaurant(restaurantId, orderId)
         requireSubmittedStatus(order)
 
-        order.status = OrderStatus.CANCELLED
-        order.updatedAt = Instant.now()
+        order.setOrderStatus(OrderStatus.CANCELLED)
 
         return orderRepository.save(order)
     }
@@ -185,8 +186,8 @@ class OrderService(
 
         requireNotTerminal(order)
 
-        if (order.status != OrderStatus.ACCEPTED) {
-            throw InvalidOrderStateForDispatchException(orderId, order.status)
+        if (order.getOrderStatus() != OrderStatus.ACCEPTED) {
+            throw InvalidOrderStateForDispatchException(orderId, order.getOrderStatus())
         }
 
         if (order.driverId != null) {
@@ -194,7 +195,6 @@ class OrderService(
         }
 
         order.driverId = driverId
-        order.updatedAt = Instant.now()
 
         return orderRepository.save(order)
     }
@@ -205,16 +205,15 @@ class OrderService(
 
         requireNotTerminal(order)
 
-        if (order.status != OrderStatus.ACCEPTED) {
-            throw InvalidOrderStateForDispatchException(orderId, order.status)
+        if (order.getOrderStatus() != OrderStatus.ACCEPTED) {
+            throw InvalidOrderStateForDispatchException(orderId, order.getOrderStatus())
         }
 
         if (order.driverId != driverId) {
             throw UnauthorizedDriverAccessException(driverId)
         }
 
-        order.status = OrderStatus.DISPATCHED
-        order.updatedAt = Instant.now()
+        order.setOrderStatus(OrderStatus.DISPATCHED)
 
         return orderRepository.save(order)
     }
@@ -223,16 +222,15 @@ class OrderService(
         val order = orderRepository.findByIdOrNull(orderId)
             ?: throw OrderNotFoundException(orderId)
 
-        if (order.status != OrderStatus.DISPATCHED) {
-            throw InvalidDeliveryStateException(orderId, order.status)
+        if (order.getOrderStatus() != OrderStatus.DISPATCHED) {
+            throw InvalidDeliveryStateException(orderId, order.getOrderStatus())
         }
 
         if (order.driverId != driverId) {
             throw UnauthorizedDriverAccessException(driverId)
         }
 
-        order.status = OrderStatus.DELIVERED
-        order.updatedAt = Instant.now()
+        order.setOrderStatus(OrderStatus.DELIVERED)
 
         return orderRepository.save(order)
     }
@@ -242,23 +240,14 @@ class OrderService(
         if (!userClient.existsById(userId)) {
             throw UserNotFoundException(userId)
         }
-        return orderRepository.findByUserId(userId)
+        return orderRepository.findByCustomerId(userId)
     }
 
     fun refundOrder(orderId: UUID): DeliveryOrder {
         val order = orderRepository.findByIdOrNull(orderId)
             ?: throw OrderNotFoundException(orderId)
 
-        if (order.paymentStatus != PaymentStatus.PAID) {
-            throw RefundNotAllowedException(orderId)
-        }
-
         val refundResult = paymentService.refundOrder(orderId)
-
-        if (refundResult.success) {
-            order.paymentStatus = PaymentStatus.REFUNDED
-            order.updatedAt = Instant.now()
-        }
 
         return orderRepository.save(order)
     }
@@ -275,13 +264,14 @@ class OrderService(
     }
 
     private fun requireSubmittedStatus(order: DeliveryOrder) {
-        if (order.status != OrderStatus.SUBMITTED) {
-            throw OrderAlreadyFinalizedException(order.status)
+        if (order.getOrderStatus() != OrderStatus.SUBMITTED) {
+            throw OrderAlreadyFinalizedException(order.getOrderStatus())
         }
     }
 
     private fun requireNotTerminal(order: DeliveryOrder) {
-        if (order.status == OrderStatus.DELIVERED || order.status == OrderStatus.CANCELLED) {
+        val status = order.getOrderStatus()
+        if (status == OrderStatus.DELIVERED || status == OrderStatus.CANCELLED) {
             throw OrderAlreadyDeliveredException(order.id)
         }
     }

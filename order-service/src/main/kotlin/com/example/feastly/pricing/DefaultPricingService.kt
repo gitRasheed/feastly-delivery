@@ -1,9 +1,10 @@
 package com.example.feastly.pricing
 
+import com.example.feastly.client.RestaurantMenuClient
 import com.example.feastly.common.MenuItemNotFoundException
 import com.example.feastly.common.MenuItemUnavailableException
 import com.example.feastly.common.OrderNotFoundException
-import com.example.feastly.menu.MenuItemRepository
+import com.example.feastly.order.OrderItemRepository
 import com.example.feastly.order.OrderRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -13,8 +14,9 @@ import kotlin.math.min
 
 @Service
 class DefaultPricingService(
-    private val menuItemRepository: MenuItemRepository,
+    private val restaurantMenuClient: RestaurantMenuClient,
     private val orderRepository: OrderRepository,
+    private val orderItemRepository: OrderItemRepository,
     private val discountCodeRepository: DiscountCodeRepository,
     private val pricingPolicy: PricingPolicy
 ) : PricingService {
@@ -24,8 +26,14 @@ class DefaultPricingService(
     }
 
     override fun previewPricing(request: PricingPreviewRequest): PricingBreakdown {
+        // Fetch menu items from restaurant-service
+        val menuItemIds = request.items.map { it.menuItemId }
+        val fetchedItems = restaurantMenuClient.batchGetMenuItems(menuItemIds)
+        val menuItemsById = fetchedItems.associateBy { it.id }
+
+        // Validate all items exist, are available, and belong to the same restaurant
         val menuItems = request.items.map { itemRequest ->
-            val menuItem = menuItemRepository.findByIdOrNull(itemRequest.menuItemId)
+            val menuItem = menuItemsById[itemRequest.menuItemId]
                 ?: throw MenuItemNotFoundException(itemRequest.menuItemId)
 
             require(menuItem.restaurantId == request.restaurantId) {
@@ -68,7 +76,8 @@ class DefaultPricingService(
         val order = orderRepository.findByIdOrNull(orderId)
             ?: throw OrderNotFoundException(orderId)
 
-        val itemsSubtotalCents = order.items.sumOf { it.priceCents * it.quantity }
+        val orderItems = orderItemRepository.findByOrderId(orderId)
+        val itemsSubtotalCents = orderItems.sumOf { it.priceCents * it.quantity }
         val serviceFeeCents = computeServiceFee(itemsSubtotalCents)
         val deliveryFeeCents = pricingPolicy.deliveryFeeFlatCents
         val discountCents = computeDiscount(discountCode, itemsSubtotalCents)
@@ -98,21 +107,19 @@ class DefaultPricingService(
         if (code.isNullOrBlank()) return 0
 
         val discount = discountCodeRepository.findByCodeIgnoreCase(code) ?: return 0
-        if (!discount.isActive) return 0
+        if (!discount.active) return 0
 
-        discount.minItemsSubtotalCents?.let { minRequired ->
-            if (itemsSubtotalCents < minRequired) return 0
-        }
+        val percentage = discount.percentage
+        val amountCents = discount.amountCents
 
-        return when (discount.type) {
-            DiscountType.PERCENT -> {
-                val bps = discount.percentBps ?: 0
-                (itemsSubtotalCents * bps) / BPS_DIVISOR
+        return when {
+            percentage != null -> {
+                (itemsSubtotalCents * percentage) / 100
             }
-            DiscountType.FIXED_CENTS -> {
-                val fixed = discount.fixedCents ?: 0
-                min(fixed, itemsSubtotalCents)
+            amountCents != null -> {
+                min(amountCents, itemsSubtotalCents)
             }
+            else -> 0
         }
     }
 }

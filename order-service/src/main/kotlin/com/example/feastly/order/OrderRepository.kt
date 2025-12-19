@@ -4,6 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 import java.util.UUID
 
 interface OrderRepository : JpaRepository<DeliveryOrder, UUID> {
-    fun findByUserId(userId: UUID): List<DeliveryOrder>
-    fun findByStatus(status: OrderStatus): List<DeliveryOrder>
+    fun findByCustomerId(customerId: UUID): List<DeliveryOrder>
+    fun findByStatus(status: String): List<DeliveryOrder>
 }

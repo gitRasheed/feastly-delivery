@@ -1,8 +1,7 @@
 package com.example.feastly.saga
 
 import com.example.feastly.BaseIntegrationTest
-import com.example.feastly.menu.MenuItemRequest
-import com.example.feastly.menu.MenuItemResponse
+import com.example.feastly.TestRestaurantMenuClient
 import com.example.feastly.order.CreateOrderRequest
 import com.example.feastly.order.OrderItemRequest
 import com.example.feastly.order.OrderResponse
@@ -13,6 +12,7 @@ import com.feastly.events.DriverDeliveryFailedEvent
 import com.feastly.events.RestaurantOrderAcceptedEvent
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -41,15 +41,20 @@ class SagaFlowIntegrationTest : BaseIntegrationTest() {
 
     private fun url(path: String) = "http://localhost:$port$path"
 
-    private fun createMenuItem(restaurantId: UUID): UUID {
-        val req = MenuItemRequest(name = "Test Item", priceCents = 1000)
-        val response = restTemplate.postForEntity(
-            url("/api/restaurants/$restaurantId/menu"),
-            req,
-            MenuItemResponse::class.java
-        )
-        return response.body!!.id
+    @BeforeEach
+    fun setUp() {
+        TestRestaurantMenuClient.clearMenuItems()
     }
+
+    private fun createMenuItem(restaurantId: UUID): UUID {
+        val item = TestRestaurantMenuClient.registerMenuItem(
+            restaurantId = restaurantId,
+            name = "Test Item",
+            priceCents = 1000
+        )
+        return item.id
+    }
+
 
     private fun createOrder(userId: UUID, restaurantId: UUID, menuItemId: UUID): OrderResponse {
         val headers = HttpHeaders().apply {

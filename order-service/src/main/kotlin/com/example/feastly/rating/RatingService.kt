@@ -24,14 +24,14 @@ class RatingService(
         val order = orderRepository.findByIdOrNull(orderId)
             ?: throw OrderNotFoundException(orderId)
 
-        require(order.userId == userId) { "Order does not belong to this user" }
+        require(order.customerId == userId) { "Order does not belong to this user" }
 
         require(!ratingRepository.existsByOrderId(orderId)) { "Order has already been rated" }
 
         val rating = Rating(
-            order = order,
-            userId = userId,
-            stars = request.stars,
+            orderId = orderId,
+            customerId = userId,
+            rating = request.stars,
             comment = request.comment
         )
 

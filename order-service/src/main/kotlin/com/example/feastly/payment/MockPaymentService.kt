@@ -22,7 +22,6 @@ class MockPaymentService(
         amountCents: Int,
         method: PaymentMethod
     ): PaymentResult {
-        // Mock: always succeed in demo
         val providerPaymentId = "mock_${UUID.randomUUID()}"
         logger.info("Mock payment charged: order=$orderId, amount=$amountCents, method=$method, ref=$providerPaymentId")
 
@@ -35,7 +34,6 @@ class MockPaymentService(
     }
 
     override fun refundOrder(orderId: UUID): RefundResult {
-        // Mock: always succeed in demo
         logger.info("Mock refund processed: order=$orderId")
 
         return RefundResult(
@@ -49,6 +47,6 @@ class MockPaymentService(
         val order = orderRepository.findByIdOrNull(orderId)
             ?: throw OrderNotFoundException(orderId)
 
-        return order.paymentStatus
+        return PaymentStatus.PAID
     }
 }

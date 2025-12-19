@@ -23,6 +23,28 @@ class DispatchService(
 
     companion object {
         private const val OFFER_TIMEOUT_SECONDS = 120L
+        // TODO: Replace with actual driver selection in future phases
+        val PLACEHOLDER_DRIVER_ID: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
+    }
+
+    /**
+     * Create initial dispatch attempt for an ORDER_SUBMITTED event.
+     * Used when an order is first submitted, before driver selection.
+     *
+     * Idempotency: Caller must check for existing attempts before calling.
+     *
+     * @param orderId The order ID
+     * @return The created dispatch attempt
+     */
+    fun createInitialDispatchAttempt(orderId: UUID): DispatchAttempt {
+        val attempt = DispatchAttempt(
+            orderId = orderId,
+            driverId = PLACEHOLDER_DRIVER_ID,
+            status = DispatchAttemptStatus.PENDING
+        )
+        val saved = dispatchAttemptRepository.save(attempt)
+        logger.info("Created initial dispatch attempt ${saved.id} for order $orderId")
+        return saved
     }
 
     /**

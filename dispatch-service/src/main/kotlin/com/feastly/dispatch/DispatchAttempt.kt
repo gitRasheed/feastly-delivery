@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import org.hibernate.annotations.UuidGenerator
 import java.time.Instant
 import java.util.UUID
 
@@ -15,8 +16,9 @@ import java.util.UUID
 @Table(name = "dispatch_attempts")
 class DispatchAttempt(
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    @GeneratedValue
+    @UuidGenerator
+    var id: UUID? = null,
 
     val orderId: UUID,
 
@@ -29,3 +31,4 @@ class DispatchAttempt(
 
     var respondedAt: Instant? = null
 )
+

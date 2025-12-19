@@ -1,0 +1,8 @@
+CREATE TABLE driver_status (
+  driver_id UUID PRIMARY KEY,
+  is_available BOOLEAN NOT NULL DEFAULT FALSE,
+  latitude DOUBLE PRECISION NOT NULL,
+  longitude DOUBLE PRECISION NOT NULL,
+  last_updated TIMESTAMP NOT NULL DEFAULT now()
+);
+

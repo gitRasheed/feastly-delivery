@@ -31,14 +31,14 @@ class UserController(private val service: UserService) {
 }
 
 data class CreateUserRequest(
-    @field:NotBlank val name: String,
-    @field:Email @field:NotBlank val email: String
+    @field:Email @field:NotBlank val email: String,
+    @field:NotBlank val password: String
 )
 
 data class UserResponse(
     val id: UUID,
-    val name: String,
-    val email: String
+    val email: String,
+    val phone: String?
 )
 
-fun User.toResponse() = UserResponse(id = id, name = name, email = email)
+fun CustomerUser.toResponse() = UserResponse(id = id, email = email, phone = phone)

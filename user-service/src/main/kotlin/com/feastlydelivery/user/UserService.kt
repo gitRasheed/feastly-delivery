@@ -7,16 +7,19 @@ import org.springframework.web.server.ResponseStatusException
 import java.util.UUID
 
 @Service
-class UserService(private val repository: UserRepository) {
+class UserService(private val repository: CustomerUserRepository) {
 
-    fun create(request: CreateUserRequest): User {
-        val user = User(name = request.name, email = request.email)
+    fun create(request: CreateUserRequest): CustomerUser {
+        val user = CustomerUser(
+            email = request.email,
+            passwordHash = request.password
+        )
         return repository.save(user)
     }
 
-    fun findById(id: UUID): User =
+    fun findById(id: UUID): CustomerUser =
         repository.findByIdOrNull(id)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: $id")
 
-    fun findAll(): List<User> = repository.findAll()
+    fun findAll(): List<CustomerUser> = repository.findAll()
 }
