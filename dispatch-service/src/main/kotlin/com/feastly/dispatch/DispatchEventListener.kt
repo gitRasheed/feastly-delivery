@@ -83,7 +83,7 @@ class DispatchEventListener(
         when (envelope.eventType) {
             OrderEventTypes.ORDER_SUBMITTED -> handleOrderSubmitted(envelope)
             OrderEventTypes.ORDER_ACCEPTED -> {
-                if (!hasExistingDispatch(envelope.order.orderId)) {
+                if (!hasActiveDispatch(envelope.order.orderId)) {
                     dispatchService.startDispatch(envelope.order.orderId)
                 }
             }
@@ -97,7 +97,7 @@ class DispatchEventListener(
         
         logger.info("Processing ORDER_SUBMITTED for order $orderId (eventId: ${envelope.eventId})")
         
-        if (hasExistingDispatch(orderId)) {
+        if (hasAnyDispatchAttempt(orderId)) {
             logger.info("Skipping duplicate ORDER_SUBMITTED - dispatch already exists for order $orderId")
             return
         }
@@ -107,7 +107,7 @@ class DispatchEventListener(
 
     private fun handleOrderAccepted(event: OrderAcceptedEvent) {
         logger.info("Consumed OrderAcceptedEvent for order ${event.orderId}")
-        if (!hasExistingDispatch(event.orderId)) {
+        if (!hasActiveDispatch(event.orderId)) {
             dispatchService.startDispatch(event.orderId)
         } else {
             logger.info("Skipping duplicate event - dispatch already exists for order ${event.orderId}")
@@ -118,13 +118,22 @@ class DispatchEventListener(
         return record.headers().lastHeader(TRACE_ID_HEADER)?.value()?.let { String(it) }
     }
 
-    private fun hasExistingDispatch(orderId: UUID): Boolean {
+    private fun hasAnyDispatchAttempt(orderId: UUID): Boolean {
         val existingAttempts = dispatchAttemptRepository.findByOrderId(orderId)
         return existingAttempts.any { attempt ->
             attempt.status in listOf(
                 DispatchAttemptStatus.PENDING,
                 DispatchAttemptStatus.ACCEPTED
             )
+        }
+    }
+
+    private fun hasActiveDispatch(orderId: UUID): Boolean {
+        val existingAttempts = dispatchAttemptRepository.findByOrderId(orderId)
+        return existingAttempts.any { attempt ->
+            attempt.status == DispatchAttemptStatus.ACCEPTED ||
+                (attempt.status == DispatchAttemptStatus.PENDING &&
+                    attempt.driverId != DispatchService.PLACEHOLDER_DRIVER_ID)
         }
     }
 

@@ -160,7 +160,8 @@ class OrderSubmittedEventTest {
         val envelope = createOrderSubmittedEnvelope()
         val orderId = envelope.order.orderId
         
-        // First call: no existing attempts, second call: has PENDING attempt
+        // First call: no existing attempts
+        // Second call: has placeholder PENDING attempt (should still block duplicate ORDER_SUBMITTED)
         whenever(dispatchAttemptRepository.findByOrderId(orderId))
             .thenReturn(emptyList())
             .thenReturn(listOf(
@@ -178,5 +179,106 @@ class OrderSubmittedEventTest {
         // Then - service method should only be called once
         verify(dispatchService, org.mockito.kotlin.times(1)).createInitialDispatchAttempt(orderId)
     }
-}
 
+    @Test
+    fun `ORDER_ACCEPTED starts dispatch when only placeholder attempt exists`() {
+        // Given - simulates ORDER_SUBMITTED followed by ORDER_ACCEPTED
+        val orderId = UUID.randomUUID()
+        val acceptedEnvelope = createOrderSubmittedEnvelope(orderId)
+            .copy(eventType = OrderEventTypes.ORDER_ACCEPTED)
+        
+        // Placeholder attempt exists from ORDER_SUBMITTED
+        val placeholderAttempt = DispatchAttempt(
+            orderId = orderId,
+            driverId = DispatchService.PLACEHOLDER_DRIVER_ID,
+            status = DispatchAttemptStatus.PENDING
+        )
+        whenever(dispatchAttemptRepository.findByOrderId(orderId))
+            .thenReturn(listOf(placeholderAttempt))
+
+        // When
+        listener.handleOrderEvents(createEnvelopeRecord(acceptedEnvelope))
+
+        // Then - startDispatch should be called (placeholder doesn't block)
+        verify(dispatchService).startDispatch(orderId)
+    }
+
+    @Test
+    fun `ORDER_ACCEPTED is blocked when real PENDING dispatch exists`() {
+        // Given
+        val orderId = UUID.randomUUID()
+        val acceptedEnvelope = createOrderSubmittedEnvelope(orderId)
+            .copy(eventType = OrderEventTypes.ORDER_ACCEPTED)
+        
+        // Real dispatch attempt exists (not placeholder)
+        val realAttempt = DispatchAttempt(
+            orderId = orderId,
+            driverId = UUID.randomUUID(), // Real driver, not placeholder
+            status = DispatchAttemptStatus.PENDING
+        )
+        whenever(dispatchAttemptRepository.findByOrderId(orderId))
+            .thenReturn(listOf(realAttempt))
+
+        // When
+        listener.handleOrderEvents(createEnvelopeRecord(acceptedEnvelope))
+
+        // Then - startDispatch should NOT be called (real dispatch in progress)
+        verify(dispatchService, never()).startDispatch(any())
+    }
+
+    @Test
+    fun `ORDER_ACCEPTED is blocked when ACCEPTED dispatch exists`() {
+        // Given
+        val orderId = UUID.randomUUID()
+        val acceptedEnvelope = createOrderSubmittedEnvelope(orderId)
+            .copy(eventType = OrderEventTypes.ORDER_ACCEPTED)
+        
+        // Already accepted dispatch exists
+        val acceptedAttempt = DispatchAttempt(
+            orderId = orderId,
+            driverId = UUID.randomUUID(),
+            status = DispatchAttemptStatus.ACCEPTED
+        )
+        whenever(dispatchAttemptRepository.findByOrderId(orderId))
+            .thenReturn(listOf(acceptedAttempt))
+
+        // When
+        listener.handleOrderEvents(createEnvelopeRecord(acceptedEnvelope))
+
+        // Then - startDispatch should NOT be called (already accepted)
+        verify(dispatchService, never()).startDispatch(any())
+    }
+
+    @Test
+    fun `duplicate ORDER_ACCEPTED does not trigger multiple dispatches`() {
+        // Given
+        val orderId = UUID.randomUUID()
+        val acceptedEnvelope = createOrderSubmittedEnvelope(orderId)
+            .copy(eventType = OrderEventTypes.ORDER_ACCEPTED)
+        
+        // First call: only placeholder exists
+        // Second call: real dispatch in progress
+        whenever(dispatchAttemptRepository.findByOrderId(orderId))
+            .thenReturn(listOf(
+                DispatchAttempt(
+                    orderId = orderId,
+                    driverId = DispatchService.PLACEHOLDER_DRIVER_ID,
+                    status = DispatchAttemptStatus.PENDING
+                )
+            ))
+            .thenReturn(listOf(
+                DispatchAttempt(
+                    orderId = orderId,
+                    driverId = UUID.randomUUID(), // Now has real driver
+                    status = DispatchAttemptStatus.PENDING
+                )
+            ))
+
+        // When - process same event twice
+        listener.handleOrderEvents(createEnvelopeRecord(acceptedEnvelope))
+        listener.handleOrderEvents(createEnvelopeRecord(acceptedEnvelope))
+
+        // Then - startDispatch should only be called once
+        verify(dispatchService, org.mockito.kotlin.times(1)).startDispatch(orderId)
+    }
+}
