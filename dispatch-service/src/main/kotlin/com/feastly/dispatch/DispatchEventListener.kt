@@ -40,9 +40,6 @@ class DispatchEventListener(
     companion object {
         const val TRACE_ID_HEADER = "X-Trace-Id"
         const val TRACE_ID_MDC_KEY = "traceId"
-
-        // TODO: Replace with actual driver selection in future phases
-        val PLACEHOLDER_DRIVER_ID: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
     }
 
     @KafkaListener(
