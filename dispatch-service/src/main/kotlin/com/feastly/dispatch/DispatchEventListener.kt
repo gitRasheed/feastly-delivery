@@ -1,5 +1,10 @@
 package com.feastly.dispatch
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.feastly.dispatch.events.OrderEventEnvelope
+import com.feastly.dispatch.events.OrderEventTypes
 import com.feastly.events.AssignDriverCommand
 import com.feastly.events.DispatchAttemptStatus
 import com.feastly.events.DriverAssignedEvent
@@ -16,8 +21,10 @@ import java.util.UUID
 
 /**
  * Kafka consumer for order events.
- * 
- * TODO: Add OpenTelemetry trace context propagation via Kafka headers
+ *
+ * Handles both:
+ * - ORDER_SUBMITTED events from the new envelope format (outbox)
+ * - OrderAcceptedEvent typed events (legacy/direct Kafka)
  */
 @Component
 class DispatchEventListener(
@@ -26,6 +33,9 @@ class DispatchEventListener(
     private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
     private val logger = LoggerFactory.getLogger(DispatchEventListener::class.java)
+    private val objectMapper = ObjectMapper()
+        .registerKotlinModule()
+        .registerModule(JavaTimeModule())
 
     companion object {
         const val TRACE_ID_HEADER = "X-Trace-Id"
@@ -34,7 +44,7 @@ class DispatchEventListener(
 
     @KafkaListener(
         topics = [KafkaTopics.ORDER_EVENTS],
-        groupId = "dispatch",
+        groupId = "dispatch-service",
         containerFactory = "kafkaListenerContainerFactory"
     )
     fun handleOrderEvents(record: ConsumerRecord<String, Any>) {
@@ -45,18 +55,59 @@ class DispatchEventListener(
             MDC.put(TRACE_ID_MDC_KEY, traceId)
             
             when (event) {
-                is OrderAcceptedEvent -> {
-                    logger.info("Consumed OrderAcceptedEvent for order ${event.orderId}")
-                    if (!hasExistingDispatch(event.orderId)) {
-                        dispatchService.startDispatch(event.orderId)
-                    } else {
-                        logger.info("Skipping duplicate event - dispatch already exists for order ${event.orderId}")
-                    }
-                }
+                is String -> handleEnvelopeEvent(event)
+                is OrderAcceptedEvent -> handleOrderAccepted(event)
                 else -> logger.debug("Ignoring event type: ${event::class.simpleName}")
             }
+        } catch (e: Exception) {
+            logger.error("Error processing event: ${e.message}", e)
+            throw e
         } finally {
             MDC.remove(TRACE_ID_MDC_KEY)
+        }
+    }
+
+    private fun handleEnvelopeEvent(jsonPayload: String) {
+        val envelope = try {
+            objectMapper.readValue(jsonPayload, OrderEventEnvelope::class.java)
+        } catch (e: Exception) {
+            logger.debug("Not a valid envelope JSON, ignoring: ${e.message}")
+            return
+        }
+
+        envelope.trace?.traceId?.let { MDC.put(TRACE_ID_MDC_KEY, it) }
+        
+        when (envelope.eventType) {
+            OrderEventTypes.ORDER_SUBMITTED -> handleOrderSubmitted(envelope)
+            OrderEventTypes.ORDER_ACCEPTED -> {
+                if (!hasActiveDispatch(envelope.order.orderId)) {
+                    dispatchService.startDispatch(envelope.order.orderId)
+                }
+            }
+            else -> logger.debug("Ignoring envelope event type: ${envelope.eventType}")
+        }
+    }
+
+
+    private fun handleOrderSubmitted(envelope: OrderEventEnvelope) {
+        val orderId = envelope.order.orderId
+        
+        logger.info("Processing ORDER_SUBMITTED for order $orderId (eventId: ${envelope.eventId})")
+        
+        if (hasAnyDispatchAttempt(orderId)) {
+            logger.info("Skipping duplicate ORDER_SUBMITTED - dispatch already exists for order $orderId")
+            return
+        }
+
+        dispatchService.createInitialDispatchAttempt(orderId)
+    }
+
+    private fun handleOrderAccepted(event: OrderAcceptedEvent) {
+        logger.info("Consumed OrderAcceptedEvent for order ${event.orderId}")
+        if (!hasActiveDispatch(event.orderId)) {
+            dispatchService.startDispatch(event.orderId)
+        } else {
+            logger.info("Skipping duplicate event - dispatch already exists for order ${event.orderId}")
         }
     }
 
@@ -64,7 +115,7 @@ class DispatchEventListener(
         return record.headers().lastHeader(TRACE_ID_HEADER)?.value()?.let { String(it) }
     }
 
-    private fun hasExistingDispatch(orderId: UUID): Boolean {
+    private fun hasAnyDispatchAttempt(orderId: UUID): Boolean {
         val existingAttempts = dispatchAttemptRepository.findByOrderId(orderId)
         return existingAttempts.any { attempt ->
             attempt.status in listOf(
@@ -74,9 +125,18 @@ class DispatchEventListener(
         }
     }
 
+    private fun hasActiveDispatch(orderId: UUID): Boolean {
+        val existingAttempts = dispatchAttemptRepository.findByOrderId(orderId)
+        return existingAttempts.any { attempt ->
+            attempt.status == DispatchAttemptStatus.ACCEPTED ||
+                (attempt.status == DispatchAttemptStatus.PENDING &&
+                    attempt.driverId != DispatchService.PLACEHOLDER_DRIVER_ID)
+        }
+    }
+
     @KafkaListener(
         topics = [KafkaTopics.DISPATCH_ASSIGN_DRIVER],
-        groupId = "dispatch",
+        groupId = "dispatch-service",
         containerFactory = "kafkaListenerContainerFactory"
     )
     fun handleAssignDriver(record: ConsumerRecord<String, Any>) {
@@ -109,3 +169,4 @@ class DispatchEventListener(
         logger.info("DispatchEventListener shutting down - completing in-flight processing...")
     }
 }
+

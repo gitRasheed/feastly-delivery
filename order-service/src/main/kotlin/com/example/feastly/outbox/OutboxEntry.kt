@@ -15,6 +15,12 @@ class OutboxEntry(
     @Id
     val id: UUID = UUID.randomUUID(),
 
+    @Column(name = "aggregate_id", nullable = false)
+    val aggregateId: UUID,
+
+    @Column(name = "aggregate_type", nullable = false)
+    val aggregateType: String,
+
     @Column(name = "event_type", nullable = false)
     val eventType: String,
 
@@ -25,6 +31,8 @@ class OutboxEntry(
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
 
-    @Column(name = "processed", nullable = false)
-    var processed: Boolean = false
-)
+    @Column(name = "published_at")
+    var publishedAt: Instant? = null
+) {
+    val processed: Boolean get() = publishedAt != null
+}

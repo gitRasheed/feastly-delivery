@@ -1,10 +1,11 @@
 package com.example.feastly.pricing
 
 import com.example.feastly.BaseIntegrationTest
-import com.example.feastly.menu.MenuItemRequest
-import com.example.feastly.menu.MenuItemResponse
+import com.example.feastly.TestRestaurantMenuClient
+import com.example.feastly.client.MenuItemData
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -31,13 +32,17 @@ class PricingControllerIntegrationTest : BaseIntegrationTest() {
 
     private fun testRestaurantId(): UUID = UUID.randomUUID()
 
-    private fun createMenuItem(restaurantId: UUID, name: String, priceCents: Int): MenuItemResponse {
-        val req = MenuItemRequest(name = name, priceCents = priceCents)
-        return restTemplate.postForEntity(
-            url("/api/restaurants/$restaurantId/menu"),
-            req,
-            MenuItemResponse::class.java
-        ).body!!
+    @BeforeEach
+    fun setUp() {
+        TestRestaurantMenuClient.clearMenuItems()
+    }
+
+    private fun createMenuItem(restaurantId: UUID, name: String, priceCents: Int): MenuItemData {
+        return TestRestaurantMenuClient.registerMenuItem(
+            restaurantId = restaurantId,
+            name = name,
+            priceCents = priceCents
+        )
     }
 
     @Test
@@ -48,6 +53,7 @@ class PricingControllerIntegrationTest : BaseIntegrationTest() {
 
         val request = PricingPreviewRequest(
             restaurantId = restaurantId,
+
             items = listOf(
                 PricingItemRequest(menuItemId = pizza.id, quantity = 2),
                 PricingItemRequest(menuItemId = drink.id, quantity = 1)
@@ -86,9 +92,8 @@ class PricingControllerIntegrationTest : BaseIntegrationTest() {
         discountCodeRepository.save(
             DiscountCode(
                 code = "SAVE10",
-                type = DiscountType.PERCENT,
-                percentBps = 1000,
-                isActive = true
+                percentage = 10,
+                active = true
             )
         )
 
@@ -118,11 +123,7 @@ class PricingControllerIntegrationTest : BaseIntegrationTest() {
         val restaurantId = testRestaurantId()
         val soldOut = createMenuItem(restaurantId, "Sold Out Item", 1000)
 
-        restTemplate.patchForObject(
-            url("/api/restaurants/$restaurantId/menu/${soldOut.id}/availability?available=false"),
-            null,
-            Void::class.java
-        )
+        TestRestaurantMenuClient.setAvailability(soldOut.id, false)
 
         val request = PricingPreviewRequest(
             restaurantId = restaurantId,

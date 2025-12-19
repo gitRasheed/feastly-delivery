@@ -10,7 +10,13 @@ import java.util.UUID
 class RestaurantService(private val repository: RestaurantRepository) {
 
     fun create(request: CreateRestaurantRequest): Restaurant {
-        val restaurant = Restaurant(name = request.name, description = request.description)
+        val restaurant = Restaurant(
+            ownerUserId = request.ownerUserId,
+            name = request.name,
+            isOpen = request.isOpen ?: false,
+            opensAt = request.opensAt,
+            closesAt = request.closesAt
+        )
         return repository.save(restaurant)
     }
 

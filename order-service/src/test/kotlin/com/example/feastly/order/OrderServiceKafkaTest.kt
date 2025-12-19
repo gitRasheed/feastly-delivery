@@ -1,8 +1,8 @@
 package com.example.feastly.order
 
 import com.example.feastly.client.RestaurantClient
+import com.example.feastly.client.RestaurantMenuClient
 import com.example.feastly.client.UserClient
-import com.example.feastly.payment.PaymentStatus
 import com.feastly.events.OrderAcceptedEvent
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -32,14 +32,13 @@ class OrderServiceKafkaTest {
     @Test
     fun `acceptOrder publishes OrderAcceptedEvent to Kafka`() {
         val orderId = UUID.randomUUID()
-        val userId = UUID.randomUUID()
+        val customerId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
 
         val order = DeliveryOrder(
-            userId = userId,
+            customerId = customerId,
             restaurantId = restaurantId,
-            status = OrderStatus.SUBMITTED,
-            paymentStatus = PaymentStatus.PENDING
+            status = OrderStatus.SUBMITTED.name
         )
 
         val idField = DeliveryOrder::class.java.getDeclaredField("id")
@@ -65,12 +64,14 @@ class OrderServiceKafkaTest {
     private fun createMinimalOrderService(): OrderService {
         return OrderService(
             orderRepository = orderRepository,
+            orderItemRepository = org.mockito.Mockito.mock(OrderItemRepository::class.java),
             userClient = org.mockito.Mockito.mock(UserClient::class.java),
             restaurantClient = org.mockito.Mockito.mock(RestaurantClient::class.java),
-            menuItemRepository = org.mockito.Mockito.mock(),
+            restaurantMenuClient = org.mockito.Mockito.mock(RestaurantMenuClient::class.java),
             paymentService = org.mockito.Mockito.mock(),
             pricingService = org.mockito.Mockito.mock(),
             outboxRepository = org.mockito.Mockito.mock(),
+            orderEventFactory = org.mockito.Mockito.mock(),
             kafkaTemplate = kafkaTemplate
         )
     }

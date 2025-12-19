@@ -2,10 +2,9 @@ package com.example.feastly.pricing
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import java.time.Instant
 import java.util.UUID
 
 @Entity
@@ -17,23 +16,15 @@ class DiscountCode(
     @Column(nullable = false, unique = true)
     val code: String,
 
-    @Enumerated(EnumType.STRING)
+    @Column
+    val percentage: Int? = null,
+
+    @Column(name = "amount_cents")
+    val amountCents: Int? = null,
+
     @Column(nullable = false)
-    val type: DiscountType,
+    val active: Boolean = true,
 
-    @Column(name = "percent_bps")
-    val percentBps: Int? = null,
-
-    @Column(name = "fixed_cents")
-    val fixedCents: Int? = null,
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    val scope: DiscountScope = DiscountScope.ORDER_ITEMS_ONLY,
-
-    @Column(name = "min_items_subtotal_cents")
-    val minItemsSubtotalCents: Int? = null,
-
-    @Column(name = "is_active", nullable = false)
-    val isActive: Boolean = true
+    @Column(name = "created_at", nullable = false)
+    val createdAt: Instant = Instant.now()
 )
