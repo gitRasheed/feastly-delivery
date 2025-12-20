@@ -26,6 +26,7 @@ import com.example.feastly.payment.PaymentService
 import com.example.feastly.pricing.PricingService
 import org.slf4j.LoggerFactory
 import org.springframework.data.repository.findByIdOrNull
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -63,7 +64,8 @@ class OrderService(
     private val pricingService: PricingService,
     private val outboxRepository: OutboxRepository,
     private val orderEventFactory: OrderEventFactory,
-    private val kafkaTemplate: KafkaTemplate<String, Any>
+    private val kafkaTemplate: KafkaTemplate<String, Any>,
+    private val meterRegistry: MeterRegistry
 ) {
     private val logger = LoggerFactory.getLogger(OrderService::class.java)
 
@@ -86,6 +88,11 @@ class OrderService(
             Instant.now()
         )
         if (!availability.accepting) {
+            meterRegistry.counter(
+                "orders_create_attempts_total",
+                "outcome", "rejected",
+                "reason", availability.reason ?: "UNKNOWN"
+            ).increment()
             logger.info(
                 "Order rejected: restaurant {} not accepting orders. Reason: {}, nextChangeAt: {}",
                 request.restaurantId,
@@ -165,6 +172,13 @@ class OrderService(
             eventType = OrderEventType.ORDER_SUBMITTED.name,
             payload = eventPayload
         ))
+
+        meterRegistry.counter(
+            "orders_create_attempts_total",
+            "outcome", "success",
+            "reason", "none"
+        ).increment()
+        logger.info("Order {} created successfully for user {}", finalOrder.id, userId)
 
         return finalOrder
     }

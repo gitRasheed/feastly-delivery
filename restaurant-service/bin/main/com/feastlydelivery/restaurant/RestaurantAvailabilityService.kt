@@ -2,6 +2,8 @@ package com.feastlydelivery.restaurant
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import io.micrometer.core.instrument.MeterRegistry
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.DayOfWeek
 import java.time.Instant
@@ -12,11 +14,30 @@ import java.time.format.DateTimeFormatter
 
 @Service
 class RestaurantAvailabilityService(
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val meterRegistry: MeterRegistry
 ) {
+    private val logger = LoggerFactory.getLogger(RestaurantAvailabilityService::class.java)
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
     fun computeAvailability(restaurant: Restaurant, at: Instant): RestaurantAvailabilityResponse {
+        val result = computeAvailabilityInternal(restaurant, at)
+        
+        meterRegistry.counter(
+            "restaurant_availability_checks_total",
+            "result", if (result.accepting) "accepting" else "rejecting",
+            "reason", result.reason.name
+        ).increment()
+        
+        logger.info(
+            "Availability check for restaurant {}: accepting={}, reason={}, nextChangeAt={}",
+            restaurant.id, result.accepting, result.reason, result.nextChangeAt
+        )
+        
+        return result
+    }
+
+    private fun computeAvailabilityInternal(restaurant: Restaurant, at: Instant): RestaurantAvailabilityResponse {
         // 1. Check forced open
         if (restaurant.forcedOpenUntil != null && restaurant.forcedOpenUntil!!.isAfter(at)) {
             return RestaurantAvailabilityResponse(

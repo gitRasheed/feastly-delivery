@@ -4,6 +4,7 @@ import com.feastly.dispatch.ports.DriverStatusPort
 import com.feastly.dispatch.ports.OrderQueryPort
 import com.feastly.events.DispatchAttemptStatus
 import com.feastly.events.OrderStatus
+import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -17,7 +18,8 @@ import kotlin.math.sqrt
 class DispatchService(
     private val orderQueryPort: OrderQueryPort,
     private val driverStatusPort: DriverStatusPort,
-    private val dispatchAttemptRepository: DispatchAttemptRepository
+    private val dispatchAttemptRepository: DispatchAttemptRepository,
+    private val meterRegistry: MeterRegistry
 ) {
     private val logger = LoggerFactory.getLogger(DispatchService::class.java)
 
@@ -106,6 +108,7 @@ class DispatchService(
         )
 
         val saved = dispatchAttemptRepository.save(attempt)
+        meterRegistry.counter("dispatch_attempts_started_total").increment()
         logger.info("Offered order $orderId to driver ${selectedDriver.driverId}")
 
         return saved
@@ -217,6 +220,34 @@ class DispatchService(
 
         logger.info("Expired ${staleOffers.size} stale offers across ${orderIds.size} orders")
         return staleOffers.size
+    }
+
+    /**
+     * Cancel all active dispatch attempts for a rejected order.
+     * This is idempotent - calling multiple times has no additional effect.
+     *
+     * @param orderId The order ID that was rejected
+     */
+    fun cancelDispatchForOrder(orderId: UUID) {
+        val attempts = dispatchAttemptRepository.findByOrderId(orderId)
+        val activeAttempts = attempts.filter { 
+            it.status in listOf(DispatchAttemptStatus.PENDING, DispatchAttemptStatus.ACCEPTED) 
+        }
+
+        if (activeAttempts.isEmpty()) {
+            logger.info("No active dispatch attempts for rejected order $orderId - nothing to cancel")
+            return
+        }
+
+        activeAttempts.forEach { attempt ->
+            attempt.status = DispatchAttemptStatus.CANCELLED
+            attempt.respondedAt = Instant.now()
+            dispatchAttemptRepository.save(attempt)
+            logger.info("Cancelled dispatch attempt ${attempt.id} for rejected order $orderId")
+        }
+
+        meterRegistry.counter("dispatch_attempts_cancelled_total").increment()
+        logger.info("Cancelled ${activeAttempts.size} dispatch attempt(s) for rejected order $orderId")
     }
 
     /**

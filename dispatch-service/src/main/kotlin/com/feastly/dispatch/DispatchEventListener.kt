@@ -14,6 +14,7 @@ import jakarta.annotation.PreDestroy
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
@@ -30,7 +31,8 @@ import java.util.UUID
 class DispatchEventListener(
     private val dispatchService: DispatchService,
     private val dispatchAttemptRepository: DispatchAttemptRepository,
-    private val kafkaTemplate: KafkaTemplate<String, Any>
+    private val kafkaTemplate: KafkaTemplate<String, Any>,
+    private val meterRegistry: MeterRegistry
 ) {
     private val logger = LoggerFactory.getLogger(DispatchEventListener::class.java)
     private val objectMapper = ObjectMapper()
@@ -80,10 +82,15 @@ class DispatchEventListener(
         when (envelope.eventType) {
             OrderEventTypes.ORDER_SUBMITTED -> handleOrderSubmitted(envelope)
             OrderEventTypes.ORDER_ACCEPTED -> {
-                if (!hasActiveDispatch(envelope.order.orderId)) {
-                    dispatchService.startDispatch(envelope.order.orderId)
+                val orderId = envelope.order.orderId
+                if (!hasActiveDispatch(orderId)) {
+                    dispatchService.startDispatch(orderId)
+                } else {
+                    meterRegistry.counter("dispatch_events_skipped_total", "eventType", "ORDER_ACCEPTED").increment()
+                    logger.info("Skipping duplicate ORDER_ACCEPTED - dispatch already active for order $orderId")
                 }
             }
+            OrderEventTypes.ORDER_REJECTED -> handleOrderRejected(envelope)
             else -> logger.debug("Ignoring envelope event type: ${envelope.eventType}")
         }
     }
@@ -95,6 +102,7 @@ class DispatchEventListener(
         logger.info("Processing ORDER_SUBMITTED for order $orderId (eventId: ${envelope.eventId})")
         
         if (hasAnyDispatchAttempt(orderId)) {
+            meterRegistry.counter("dispatch_events_skipped_total", "eventType", "ORDER_SUBMITTED").increment()
             logger.info("Skipping duplicate ORDER_SUBMITTED - dispatch already exists for order $orderId")
             return
         }
@@ -107,8 +115,15 @@ class DispatchEventListener(
         if (!hasActiveDispatch(event.orderId)) {
             dispatchService.startDispatch(event.orderId)
         } else {
+            meterRegistry.counter("dispatch_events_skipped_total", "eventType", "ORDER_ACCEPTED").increment()
             logger.info("Skipping duplicate event - dispatch already exists for order ${event.orderId}")
         }
+    }
+
+    private fun handleOrderRejected(envelope: OrderEventEnvelope) {
+        val orderId = envelope.order.orderId
+        logger.info("Processing ORDER_REJECTED for order $orderId (eventId: ${envelope.eventId})")
+        dispatchService.cancelDispatchForOrder(orderId)
     }
 
     private fun extractTraceId(record: ConsumerRecord<String, Any>): String? {
