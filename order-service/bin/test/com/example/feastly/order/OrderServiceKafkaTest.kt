@@ -68,11 +68,13 @@ class OrderServiceKafkaTest {
             userClient = org.mockito.Mockito.mock(UserClient::class.java),
             restaurantClient = org.mockito.Mockito.mock(RestaurantClient::class.java),
             restaurantMenuClient = org.mockito.Mockito.mock(RestaurantMenuClient::class.java),
+            restaurantAvailabilityClient = org.mockito.Mockito.mock(),
             paymentService = org.mockito.Mockito.mock(),
             pricingService = org.mockito.Mockito.mock(),
             outboxRepository = org.mockito.Mockito.mock(),
             orderEventFactory = org.mockito.Mockito.mock(),
-            kafkaTemplate = kafkaTemplate
+            kafkaTemplate = kafkaTemplate,
+            meterRegistry = org.mockito.Mockito.mock()
         )
     }
 }
