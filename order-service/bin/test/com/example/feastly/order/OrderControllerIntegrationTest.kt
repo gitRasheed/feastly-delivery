@@ -268,6 +268,14 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
             OrderResponse::class.java
         )
         
+        // Mark ready for pickup (required since Phase 2B)
+        restTemplate.exchange(
+            url("/api/restaurants/$restaurantId/orders/$orderId/ready"),
+            HttpMethod.POST,
+            HttpEntity<Void>(HttpHeaders()),
+            OrderResponse::class.java
+        )
+        
         restTemplate.exchange(
             url("/api/orders/$orderId/pickup?driverId=$driverId"),
             HttpMethod.PATCH,
@@ -290,6 +298,14 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
         restTemplate.exchange(
             url("/api/orders/${order.id}/assign-driver?driverId=$driverId"),
             HttpMethod.PATCH,
+            HttpEntity<Void>(HttpHeaders()),
+            OrderResponse::class.java
+        )
+
+        // Mark ready for pickup (required since Phase 2B)
+        restTemplate.exchange(
+            url("/api/restaurants/$restaurantId/orders/${order.id}/ready"),
+            HttpMethod.POST,
             HttpEntity<Void>(HttpHeaders()),
             OrderResponse::class.java
         )

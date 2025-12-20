@@ -7,9 +7,12 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.feastly.events.DispatchAttemptStatus
 import com.feastly.events.OrderAcceptedEvent
+import io.micrometer.core.instrument.MeterRegistry
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType
+import org.mockito.Answers
+import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -30,6 +33,9 @@ class DispatchEventListenerContractTest {
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
         .registerModule(JavaTimeModule())
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+
+    private fun mockMeterRegistry(): MeterRegistry = 
+        Mockito.mock(MeterRegistry::class.java, Answers.RETURNS_DEEP_STUBS)
 
     private fun createRecord(event: OrderAcceptedEvent, traceId: String? = null): ConsumerRecord<String, Any> {
         val headers = RecordHeaders()
@@ -84,7 +90,7 @@ class DispatchEventListenerContractTest {
     fun `handleOrderEvents invokes dispatchService with correct orderId`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mock())
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mockMeterRegistry())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(
@@ -103,7 +109,7 @@ class DispatchEventListenerContractTest {
     fun `full roundtrip - serialize event then consume via listener`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mock())
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mockMeterRegistry())
 
         val orderId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
@@ -125,7 +131,7 @@ class DispatchEventListenerContractTest {
     fun `consuming same event twice only triggers dispatch once - idempotency`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mock())
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mockMeterRegistry())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(
@@ -152,7 +158,7 @@ whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList(
     fun `skips dispatch when accepted attempt already exists`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mock())
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mockMeterRegistry())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(
@@ -178,7 +184,7 @@ val acceptedAttempt = DispatchAttempt(
     fun `allows re-dispatch after rejection`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mock())
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mockMeterRegistry())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(
@@ -204,7 +210,7 @@ val rejectedAttempt = DispatchAttempt(
     fun `traceId from Kafka header is used in processing`() {
         val dispatchService = mock<DispatchService>()
         val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mock())
+        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock(), mockMeterRegistry())
 
         val orderId = UUID.randomUUID()
         val event = OrderAcceptedEvent(

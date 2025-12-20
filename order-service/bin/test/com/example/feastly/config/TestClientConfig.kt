@@ -1,11 +1,14 @@
 package com.example.feastly.config
 
+import com.example.feastly.client.RestaurantAvailabilityClient
+import com.example.feastly.client.RestaurantAvailabilityResponse
 import com.example.feastly.client.RestaurantClient
 import com.example.feastly.client.UserClient
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
 import org.springframework.context.annotation.Profile
+import java.time.Instant
 import java.util.UUID
 
 @Configuration
@@ -22,5 +25,17 @@ class TestClientConfig {
     @Primary
     fun testRestaurantClient(): RestaurantClient = object : RestaurantClient {
         override fun existsById(restaurantId: UUID): Boolean = true
+    }
+
+    @Bean
+    @Primary
+    fun testRestaurantAvailabilityClient(): RestaurantAvailabilityClient = object : RestaurantAvailabilityClient {
+        override fun checkAvailability(restaurantId: UUID, at: Instant): RestaurantAvailabilityResponse {
+            return RestaurantAvailabilityResponse(
+                accepting = true,
+                reason = "OPEN",
+                nextChangeAt = null
+            )
+        }
     }
 }

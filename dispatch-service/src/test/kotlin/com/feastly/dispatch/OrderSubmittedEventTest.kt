@@ -10,9 +10,11 @@ import com.feastly.dispatch.events.OrderSnapshot
 import com.feastly.dispatch.events.PricingSnapshot
 import com.feastly.dispatch.events.TraceContext
 import com.feastly.events.DispatchAttemptStatus
+import io.micrometer.core.instrument.MeterRegistry
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.Answers
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
@@ -38,6 +40,9 @@ class OrderSubmittedEventTest {
 
     @Mock
     private lateinit var kafkaTemplate: org.springframework.kafka.core.KafkaTemplate<String, Any>
+
+    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
+    private lateinit var meterRegistry: MeterRegistry
 
     @InjectMocks
     private lateinit var listener: DispatchEventListener

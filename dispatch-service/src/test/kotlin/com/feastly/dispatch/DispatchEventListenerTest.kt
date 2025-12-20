@@ -1,6 +1,7 @@
 package com.feastly.dispatch
 
 import com.feastly.events.OrderAcceptedEvent
+import io.micrometer.core.instrument.MeterRegistry
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -23,6 +24,9 @@ class DispatchEventListenerTest {
 
     @Mock
     private lateinit var kafkaTemplate: org.springframework.kafka.core.KafkaTemplate<String, Any>
+
+    @Mock
+    private lateinit var meterRegistry: MeterRegistry
 
     @InjectMocks
     private lateinit var listener: DispatchEventListener
