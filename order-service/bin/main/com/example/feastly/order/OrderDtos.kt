@@ -1,0 +1,99 @@
+package com.example.feastly.order
+
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotEmpty
+import jakarta.validation.constraints.NotNull
+import java.time.Instant
+import java.util.UUID
+
+data class OrderItemRequest(
+    @field:NotNull(message = "menuItemId is required")
+    val menuItemId: UUID,
+
+    @field:NotNull(message = "quantity is required")
+    @field:Min(value = 1, message = "quantity must be at least 1")
+    val quantity: Int
+)
+
+data class CreateOrderRequest(
+    @field:NotNull(message = "restaurantId is required")
+    val restaurantId: UUID,
+
+    @field:NotEmpty(message = "items cannot be empty")
+    @field:Valid
+    val items: List<OrderItemRequest>,
+
+    val driverId: UUID? = null,
+    val discountCode: String? = null,
+    val tipCents: Int? = 0
+)
+
+data class UpdateOrderStatusRequest(
+    @field:NotNull val status: OrderStatus
+)
+
+/**
+ * Response DTO for order line items.
+ *
+ * All fields are derived from snapshotted data in [OrderItem],
+ * ensuring reads are independent of restaurant-service availability.
+ */
+data class OrderItemResponse(
+    val id: UUID,
+    val menuItemId: UUID,
+    /** Snapshotted menu item name from order creation time */
+    val menuItemName: String?,
+    val quantity: Int,
+    val priceCents: Int,
+    val lineTotalCents: Int
+)
+
+data class OrderResponse(
+    val id: UUID,
+    val customerId: UUID,
+    val restaurantId: UUID,
+    val driverId: UUID?,
+    val status: OrderStatus,
+    val subtotalCents: Int,
+    val taxCents: Int,
+    val deliveryFeeCents: Int,
+    val totalCents: Int,
+    val createdAt: Instant
+)
+
+data class OrderHistoryResponse(
+    val orderId: UUID,
+    val totalCents: Int,
+    val restaurantId: UUID,
+    val status: OrderStatus
+)
+
+fun OrderItem.toResponse() = OrderItemResponse(
+    id = this.id,
+    menuItemId = this.menuItemId,
+    menuItemName = this.menuItemName,
+    quantity = this.quantity,
+    priceCents = this.priceCents,
+    lineTotalCents = this.quantity * this.priceCents
+)
+
+fun DeliveryOrder.toResponse() = OrderResponse(
+    id = this.id,
+    customerId = this.customerId,
+    restaurantId = this.restaurantId,
+    driverId = this.driverId,
+    status = this.getOrderStatus(),
+    subtotalCents = this.subtotalCents,
+    taxCents = this.taxCents,
+    deliveryFeeCents = this.deliveryFeeCents,
+    totalCents = this.totalCents,
+    createdAt = this.createdAt
+)
+
+fun DeliveryOrder.toHistoryResponse() = OrderHistoryResponse(
+    orderId = this.id,
+    totalCents = this.totalCents,
+    restaurantId = this.restaurantId,
+    status = this.getOrderStatus()
+)

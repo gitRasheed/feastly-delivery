@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: dispatch-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/dispatch}
+    username: ${SPRING_DATASOURCE_USERNAME:admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:admin}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  metrics:
+    tags:
+      application: dispatch-service
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://tempo:4318/v1/traces}
+
+# HTTP fallback for cross-service REST calls
+# Set to true for admin dashboards / operational tooling only
+dispatch:
+  http-fallback:
+    enabled: ${DISPATCH_HTTP_FALLBACK_ENABLED:false}
+  order-service:
+    base-url: ${ORDER_SERVICE_URL:http://order-service:8080}
+  driver-tracking-service:
+    base-url: ${DRIVER_TRACKING_SERVICE_URL:http://driver-tracking-service:8082}
+
