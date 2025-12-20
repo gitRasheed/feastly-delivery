@@ -1,0 +1,5 @@
+ALTER TABLE restaurants
+  ADD COLUMN IF NOT EXISTS is_online BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS forced_open_until TIMESTAMPTZ NULL,
+  ADD COLUMN IF NOT EXISTS forced_closed_until TIMESTAMPTZ NULL,
+  ADD COLUMN IF NOT EXISTS schedule_json JSONB NOT NULL DEFAULT '{"weekly": {}, "exceptions": {}}'::jsonb;
