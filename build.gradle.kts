@@ -20,6 +20,8 @@ allprojects {
 subprojects {
     tasks.withType<Test> {
         useJUnitPlatform()
+        maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
+        jvmArgs("-XX:+UseParallelGC")
     }
 }
 

@@ -20,10 +20,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       
       - name: Build & Test
-        run: ./gradlew build
+        run: ./gradlew build -PenableStaticAnalysis=true
       
       - name: Detekt
-        run: ./gradlew detekt
+        run: ./gradlew detekt -PenableStaticAnalysis=true
       
       - name: SpotBugs
-        run: ./gradlew spotbugsMain
+        run: ./gradlew spotbugsMain -PenableStaticAnalysis=true

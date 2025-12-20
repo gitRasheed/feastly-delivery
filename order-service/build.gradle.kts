@@ -69,3 +69,9 @@ spotbugs {
     ignoreFailures = true
     excludeFilter.set(file("../spotbugs-exclude.xml"))
 }
+
+val enableStaticAnalysis = providers.gradleProperty("enableStaticAnalysis").map { it.toBoolean() }.orElse(false).get()
+
+tasks.matching { it.name == "detekt" || it.name.startsWith("spotbugs") }.configureEach {
+    enabled = enableStaticAnalysis
+}
