@@ -15,7 +15,7 @@ import com.example.feastly.common.RestaurantNotFoundException
 import com.example.feastly.common.UnauthorizedDriverAccessException
 import com.example.feastly.common.UnauthorizedRestaurantAccessException
 import com.example.feastly.common.UserNotFoundException
-import com.feastly.events.OrderAcceptedEvent
+import com.example.feastly.events.OrderAcceptedEvent
 import com.example.feastly.outbox.OrderEventFactory
 import com.example.feastly.outbox.OrderEventType
 import com.example.feastly.outbox.OutboxEntry

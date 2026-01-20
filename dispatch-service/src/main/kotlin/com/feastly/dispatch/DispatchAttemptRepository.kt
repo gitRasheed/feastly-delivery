@@ -1,6 +1,6 @@
 package com.feastly.dispatch
 
-import com.feastly.events.DispatchAttemptStatus
+import com.feastly.dispatch.events.DispatchAttemptStatus
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 import java.time.Instant

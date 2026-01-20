@@ -2,8 +2,8 @@ package com.feastly.dispatch
 
 import com.feastly.dispatch.ports.DriverStatusPort
 import com.feastly.dispatch.ports.OrderQueryPort
-import com.feastly.events.DispatchAttemptStatus
-import com.feastly.events.OrderStatus
+import com.feastly.dispatch.events.DispatchAttemptStatus
+import com.feastly.dispatch.events.OrderStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

@@ -1,6 +1,5 @@
 package com.feastly.dispatch
 
-import com.feastly.events.OrderAcceptedEvent
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -27,13 +26,18 @@ class DispatchEventListenerTest {
     @InjectMocks
     private lateinit var listener: DispatchEventListener
 
-    private fun createRecord(event: OrderAcceptedEvent): ConsumerRecord<String, Any> {
+    private fun createMapRecord(orderId: UUID, restaurantId: UUID): ConsumerRecord<String, Any> {
+        val eventMap = mapOf(
+            "orderId" to orderId.toString(),
+            "restaurantId" to restaurantId.toString(),
+            "timestamp" to Instant.now().toString()
+        )
         return ConsumerRecord(
             "order-events",
             0,
             0L,
-            event.orderId.toString(),
-            event as Any
+            orderId.toString(),
+            eventMap as Any
         )
     }
 
@@ -42,15 +46,9 @@ class DispatchEventListenerTest {
         val orderId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
 
-        val event = OrderAcceptedEvent(
-            orderId = orderId,
-            restaurantId = restaurantId,
-            timestamp = Instant.now()
-        )
-
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
-        listener.handleOrderEvents(createRecord(event))
+        listener.handleOrderEvents(createMapRecord(orderId, restaurantId))
 
         verify(dispatchService).startDispatch(orderId)
     }

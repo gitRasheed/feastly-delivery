@@ -3,7 +3,7 @@ package com.example.feastly.order
 import com.example.feastly.client.RestaurantClient
 import com.example.feastly.client.RestaurantMenuClient
 import com.example.feastly.client.UserClient
-import com.feastly.events.OrderAcceptedEvent
+import com.example.feastly.events.OrderAcceptedEvent
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock

@@ -1,12 +1,9 @@
 package com.feastly.dispatch
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
-import com.feastly.events.DispatchAttemptStatus
-import com.feastly.events.OrderAcceptedEvent
+import com.feastly.dispatch.events.DispatchAttemptStatus
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.apache.kafka.common.record.TimestampType
@@ -22,30 +19,37 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Contract test verifying dispatch-service can consume OrderAcceptedEvent
- * as produced by order-service and correctly trigger dispatch logic.
+ * Contract test verifying dispatch-service can consume order events
+ * as produced by order-service (without type headers) and correctly trigger dispatch logic.
  */
 class DispatchEventListenerContractTest {
 
     private val objectMapper: ObjectMapper = jacksonObjectMapper()
         .registerModule(JavaTimeModule())
-        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 
-    private fun createRecord(event: OrderAcceptedEvent, traceId: String? = null): ConsumerRecord<String, Any> {
-        val headers = RecordHeaders()
-        traceId?.let { headers.add("X-Trace-Id", it.toByteArray()) }
+    private fun createMapRecord(orderId: UUID, restaurantId: UUID): ConsumerRecord<String, Any> {
+        val eventMap = mapOf(
+            "orderId" to orderId.toString(),
+            "restaurantId" to restaurantId.toString(),
+            "timestamp" to Instant.now().toString()
+        )
         return ConsumerRecord(
             "order-events",
             0,
             0L,
-            event.orderId.toString(),
-            event as Any
+            orderId.toString(),
+            eventMap as Any
         )
     }
 
-    private fun createRecordWithHeaders(event: OrderAcceptedEvent, traceId: String): ConsumerRecord<String, Any> {
+    private fun createMapRecordWithHeaders(orderId: UUID, restaurantId: UUID, traceId: String): ConsumerRecord<String, Any> {
         val headers = RecordHeaders()
         headers.add("X-Trace-Id", traceId.toByteArray())
+        val eventMap = mapOf(
+            "orderId" to orderId.toString(),
+            "restaurantId" to restaurantId.toString(),
+            "timestamp" to Instant.now().toString()
+        )
         return ConsumerRecord(
             "order-events",
             0,
@@ -54,15 +58,15 @@ class DispatchEventListenerContractTest {
             TimestampType.CREATE_TIME,
             0,
             0,
-            event.orderId.toString(),
-            event as Any,
+            orderId.toString(),
+            eventMap as Any,
             headers,
             java.util.Optional.empty()
         )
     }
 
     @Test
-    fun `can deserialize OrderAcceptedEvent from producer JSON format`() {
+    fun `can deserialize OrderAcceptedEvent from producer JSON format using ObjectMapper`() {
         val orderId = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc")
         val restaurantId = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd")
 
@@ -74,10 +78,10 @@ class DispatchEventListenerContractTest {
             }
         """.trimIndent()
 
-        val event: OrderAcceptedEvent = objectMapper.readValue(producerJson)
+        val eventMap: Map<String, Any> = objectMapper.readValue(producerJson, Map::class.java) as Map<String, Any>
 
-        assertEquals(orderId, event.orderId)
-        assertEquals(restaurantId, event.restaurantId)
+        assertEquals(orderId.toString(), eventMap["orderId"])
+        assertEquals(restaurantId.toString(), eventMap["restaurantId"])
     }
 
     @Test
@@ -87,36 +91,11 @@ class DispatchEventListenerContractTest {
         val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
-        val event = OrderAcceptedEvent(
-            orderId = orderId,
-            restaurantId = UUID.randomUUID()
-        )
-
-        whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
-
-        listener.handleOrderEvents(createRecord(event))
-
-        verify(dispatchService).startDispatch(orderId)
-    }
-
-    @Test
-    fun `full roundtrip - serialize event then consume via listener`() {
-        val dispatchService = mock<DispatchService>()
-        val dispatchAttemptRepository = mock<DispatchAttemptRepository>()
-        val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
-
-        val orderId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
 
-        val originalEvent = OrderAcceptedEvent(
-            orderId = orderId,
-            restaurantId = restaurantId
-        )
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
-        val json = objectMapper.writeValueAsString(originalEvent)
-        val consumedEvent: OrderAcceptedEvent = objectMapper.readValue(json)
-        listener.handleOrderEvents(createRecord(consumedEvent))
+        listener.handleOrderEvents(createMapRecord(orderId, restaurantId))
 
         verify(dispatchService).startDispatch(orderId)
     }
@@ -128,13 +107,10 @@ class DispatchEventListenerContractTest {
         val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
-        val event = OrderAcceptedEvent(
-            orderId = orderId,
-            restaurantId = UUID.randomUUID()
-        )
+        val restaurantId = UUID.randomUUID()
 
-whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
-        listener.handleOrderEvents(createRecord(event))
+        whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
+        listener.handleOrderEvents(createMapRecord(orderId, restaurantId))
 
         val existingAttempt = DispatchAttempt(
             orderId = orderId,
@@ -143,7 +119,7 @@ whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList(
             offeredAt = Instant.now()
         )
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(listOf(existingAttempt))
-        listener.handleOrderEvents(createRecord(event))
+        listener.handleOrderEvents(createMapRecord(orderId, restaurantId))
 
         verify(dispatchService, times(1)).startDispatch(orderId)
     }
@@ -155,12 +131,9 @@ whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList(
         val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
-        val event = OrderAcceptedEvent(
-            orderId = orderId,
-            restaurantId = UUID.randomUUID()
-        )
+        val restaurantId = UUID.randomUUID()
 
-val acceptedAttempt = DispatchAttempt(
+        val acceptedAttempt = DispatchAttempt(
             orderId = orderId,
             driverId = UUID.randomUUID(),
             status = DispatchAttemptStatus.ACCEPTED,
@@ -169,7 +142,7 @@ val acceptedAttempt = DispatchAttempt(
         )
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(listOf(acceptedAttempt))
 
-        listener.handleOrderEvents(createRecord(event))
+        listener.handleOrderEvents(createMapRecord(orderId, restaurantId))
 
         verify(dispatchService, never()).startDispatch(any())
     }
@@ -181,12 +154,9 @@ val acceptedAttempt = DispatchAttempt(
         val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
-        val event = OrderAcceptedEvent(
-            orderId = orderId,
-            restaurantId = UUID.randomUUID()
-        )
+        val restaurantId = UUID.randomUUID()
 
-val rejectedAttempt = DispatchAttempt(
+        val rejectedAttempt = DispatchAttempt(
             orderId = orderId,
             driverId = UUID.randomUUID(),
             status = DispatchAttemptStatus.REJECTED,
@@ -195,7 +165,7 @@ val rejectedAttempt = DispatchAttempt(
         )
         whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(listOf(rejectedAttempt))
 
-        listener.handleOrderEvents(createRecord(event))
+        listener.handleOrderEvents(createMapRecord(orderId, restaurantId))
 
         verify(dispatchService).startDispatch(orderId)
     }
@@ -207,14 +177,11 @@ val rejectedAttempt = DispatchAttempt(
         val listener = DispatchEventListener(dispatchService, dispatchAttemptRepository, mock())
 
         val orderId = UUID.randomUUID()
-        val event = OrderAcceptedEvent(
-            orderId = orderId,
-            restaurantId = UUID.randomUUID()
-        )
+        val restaurantId = UUID.randomUUID()
 
-whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
+        whenever(dispatchAttemptRepository.findByOrderId(orderId)).thenReturn(emptyList())
 
-        listener.handleOrderEvents(createRecordWithHeaders(event, "test-trace-123"))
+        listener.handleOrderEvents(createMapRecordWithHeaders(orderId, restaurantId, "test-trace-123"))
 
         verify(dispatchService).startDispatch(orderId)
     }

@@ -40,3 +40,7 @@ build/
 /.gradle
 /build
 .vscode
+**/bin/
+.classpath
+.project
+.settings/

@@ -1,6 +1,6 @@
 package com.feastly.dispatch
 
-import com.feastly.events.DispatchAttemptStatus
+import com.feastly.dispatch.events.DispatchAttemptStatus
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired

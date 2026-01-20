@@ -18,6 +18,14 @@ allprojects {
 }
 
 subprojects {
+    apply(plugin = "eclipse")
+
+    configure<org.gradle.plugins.ide.eclipse.model.EclipseModel> {
+        classpath {
+            defaultOutputDir = file("build/bin")
+        }
+    }
+
     tasks.withType<Test> {
         useJUnitPlatform()
         maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)

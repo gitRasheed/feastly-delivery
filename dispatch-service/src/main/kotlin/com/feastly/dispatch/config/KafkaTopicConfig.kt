@@ -1,6 +1,6 @@
 package com.feastly.dispatch.config
 
-import com.feastly.events.KafkaTopics
+import com.feastly.dispatch.config.KafkaTopics
 import org.apache.kafka.clients.admin.NewTopic
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

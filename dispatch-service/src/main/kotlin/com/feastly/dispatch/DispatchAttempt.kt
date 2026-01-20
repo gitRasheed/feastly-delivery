@@ -1,6 +1,6 @@
 package com.feastly.dispatch
 
-import com.feastly.events.DispatchAttemptStatus
+import com.feastly.dispatch.events.DispatchAttemptStatus
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated

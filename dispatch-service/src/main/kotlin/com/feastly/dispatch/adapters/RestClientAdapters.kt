@@ -1,8 +1,8 @@
 package com.feastly.dispatch.adapters
 
-import com.feastly.events.AvailableDriver
-import com.feastly.events.OrderInfo
-import com.feastly.events.OrderStatus
+import com.feastly.dispatch.events.AvailableDriver
+import com.feastly.dispatch.events.OrderInfo
+import com.feastly.dispatch.events.OrderStatus
 import com.feastly.dispatch.ports.DriverStatusPort
 import com.feastly.dispatch.ports.OrderQueryPort
 import org.slf4j.LoggerFactory

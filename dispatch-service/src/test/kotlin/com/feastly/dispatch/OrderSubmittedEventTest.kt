@@ -9,7 +9,7 @@ import com.feastly.dispatch.events.OrderItemSnapshot
 import com.feastly.dispatch.events.OrderSnapshot
 import com.feastly.dispatch.events.PricingSnapshot
 import com.feastly.dispatch.events.TraceContext
-import com.feastly.events.DispatchAttemptStatus
+import com.feastly.dispatch.events.DispatchAttemptStatus
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith

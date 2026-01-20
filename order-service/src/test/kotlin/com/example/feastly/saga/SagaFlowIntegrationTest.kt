@@ -6,10 +6,10 @@ import com.example.feastly.order.CreateOrderRequest
 import com.example.feastly.order.OrderItemRequest
 import com.example.feastly.order.OrderResponse
 import com.example.feastly.order.OrderStatus
-import com.feastly.events.DeliveryCompletedEvent
-import com.feastly.events.DriverAssignedEvent
-import com.feastly.events.DriverDeliveryFailedEvent
-import com.feastly.events.RestaurantOrderAcceptedEvent
+import com.example.feastly.events.DeliveryCompletedEvent
+import com.example.feastly.events.DriverAssignedEvent
+import com.example.feastly.events.DriverDeliveryFailedEvent
+import com.example.feastly.events.RestaurantOrderAcceptedEvent
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach

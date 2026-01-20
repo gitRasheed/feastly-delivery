@@ -3,13 +3,13 @@ package com.feastly.dispatch
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.feastly.dispatch.config.KafkaTopics
+import com.feastly.dispatch.events.AssignDriverCommandDto
+import com.feastly.dispatch.events.DispatchAttemptStatus
+import com.feastly.dispatch.events.DriverAssignedEventDto
+import com.feastly.dispatch.events.OrderAcceptedEventDto
 import com.feastly.dispatch.events.OrderEventEnvelope
 import com.feastly.dispatch.events.OrderEventTypes
-import com.feastly.events.AssignDriverCommand
-import com.feastly.events.DispatchAttemptStatus
-import com.feastly.events.DriverAssignedEvent
-import com.feastly.events.KafkaTopics
-import com.feastly.events.OrderAcceptedEvent
 import jakarta.annotation.PreDestroy
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
@@ -24,7 +24,7 @@ import java.util.UUID
  *
  * Handles both:
  * - ORDER_SUBMITTED events from the new envelope format (outbox)
- * - OrderAcceptedEvent typed events (legacy/direct Kafka)
+ * - OrderAcceptedEvent as raw JSON (no type headers)
  */
 @Component
 class DispatchEventListener(
@@ -56,7 +56,7 @@ class DispatchEventListener(
             
             when (event) {
                 is String -> handleEnvelopeEvent(event)
-                is OrderAcceptedEvent -> handleOrderAccepted(event)
+                is Map<*, *> -> handleMapEvent(event)
                 else -> logger.debug("Ignoring event type: ${event::class.simpleName}")
             }
         } catch (e: Exception) {
@@ -64,6 +64,20 @@ class DispatchEventListener(
             throw e
         } finally {
             MDC.remove(TRACE_ID_MDC_KEY)
+        }
+    }
+
+    private fun handleMapEvent(eventMap: Map<*, *>) {
+        if (!eventMap.containsKey("orderId")) {
+            logger.debug("Map event missing orderId, ignoring")
+            return
+        }
+
+        if (eventMap.containsKey("restaurantId") && !eventMap.containsKey("driverId")) {
+            val dto = objectMapper.convertValue(eventMap, OrderAcceptedEventDto::class.java)
+            handleOrderAccepted(dto)
+        } else {
+            logger.debug("Unrecognized map event structure, ignoring")
         }
     }
 
@@ -102,7 +116,7 @@ class DispatchEventListener(
         dispatchService.createInitialDispatchAttempt(orderId)
     }
 
-    private fun handleOrderAccepted(event: OrderAcceptedEvent) {
+    private fun handleOrderAccepted(event: OrderAcceptedEventDto) {
         logger.info("Consumed OrderAcceptedEvent for order ${event.orderId}")
         if (!hasActiveDispatch(event.orderId)) {
             dispatchService.startDispatch(event.orderId)
@@ -147,15 +161,20 @@ class DispatchEventListener(
             MDC.put(TRACE_ID_MDC_KEY, traceId)
             
             when (event) {
-                is AssignDriverCommand -> {
-                    logger.info("Received AssignDriverCommand for order ${event.orderId}")
-                    val driverId = UUID.randomUUID()
-                    val assignedEvent = DriverAssignedEvent(
-                        orderId = event.orderId,
-                        driverId = driverId
-                    )
-                    kafkaTemplate.send(KafkaTopics.DISPATCH_EVENTS, event.orderId.toString(), assignedEvent)
-                    logger.info("Emitted DriverAssignedEvent for order ${event.orderId} with driver $driverId")
+                is Map<*, *> -> {
+                    if (event.containsKey("orderId") && event.containsKey("restaurantId")) {
+                        val command = objectMapper.convertValue(event, AssignDriverCommandDto::class.java)
+                        logger.info("Received AssignDriverCommand for order ${command.orderId}")
+                        val driverId = UUID.randomUUID()
+                        val assignedEvent = DriverAssignedEventDto(
+                            orderId = command.orderId,
+                            driverId = driverId
+                        )
+                        kafkaTemplate.send(KafkaTopics.DISPATCH_EVENTS, command.orderId.toString(), assignedEvent)
+                        logger.info("Emitted DriverAssignedEvent for order ${command.orderId} with driver $driverId")
+                    } else {
+                        logger.warn("Invalid AssignDriverCommand structure: missing required fields")
+                    }
                 }
                 else -> logger.warn("Unexpected event type: ${event::class.simpleName}")
             }
@@ -169,4 +188,3 @@ class DispatchEventListener(
         logger.info("DispatchEventListener shutting down - completing in-flight processing...")
     }
 }
-

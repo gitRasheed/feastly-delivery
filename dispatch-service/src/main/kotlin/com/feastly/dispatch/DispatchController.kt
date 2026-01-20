@@ -23,10 +23,10 @@ class DispatchController(
     }
 
     @PostMapping("/orders/{orderId}/start")
-    fun startDispatch(@PathVariable orderId: UUID): ResponseEntity<DispatchAttempt> {
+    fun startDispatch(@PathVariable orderId: UUID): ResponseEntity<DispatchAttemptResponse> {
         val attempt = dispatchService.startDispatch(orderId)
         return if (attempt != null) {
-            ResponseEntity.ok(attempt)
+            ResponseEntity.ok(attempt.toResponse())
         } else {
             ResponseEntity.noContent().build()
         }

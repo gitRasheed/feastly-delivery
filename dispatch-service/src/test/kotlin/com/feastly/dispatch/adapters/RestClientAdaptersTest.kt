@@ -3,9 +3,9 @@ package com.feastly.dispatch.adapters
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.feastly.events.AvailableDriver
-import com.feastly.events.OrderInfo
-import com.feastly.events.OrderStatus
+import com.feastly.dispatch.events.AvailableDriver
+import com.feastly.dispatch.events.OrderInfo
+import com.feastly.dispatch.events.OrderStatus
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus

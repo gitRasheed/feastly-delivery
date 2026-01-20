@@ -1,8 +1,8 @@
 package com.feastly.dispatch
 
-import com.feastly.events.DeliveryCompletedEvent
-import com.feastly.events.DriverDeliveryFailedEvent
-import com.feastly.events.KafkaTopics
+import com.feastly.dispatch.config.KafkaTopics
+import com.feastly.dispatch.events.DeliveryCompletedEventDto
+import com.feastly.dispatch.events.DriverDeliveryFailedEventDto
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.kafka.core.KafkaTemplate
@@ -27,7 +27,7 @@ class DeliveryController(
     ): ResponseEntity<Void> {
         log.info("Driver $driverId completing delivery for order $orderId")
 
-        val event = DeliveryCompletedEvent(
+        val event = DeliveryCompletedEventDto(
             orderId = orderId,
             driverId = driverId
         )
@@ -45,7 +45,7 @@ class DeliveryController(
     ): ResponseEntity<Void> {
         log.info("Driver $driverId failed delivery for order $orderId: $reason")
 
-        val event = DriverDeliveryFailedEvent(
+        val event = DriverDeliveryFailedEventDto(
             orderId = orderId,
             driverId = driverId,
             reason = reason

@@ -1,7 +1,7 @@
 package com.example.feastly.order
 
-import com.feastly.events.OrderInfo
-import com.feastly.events.OrderStatus
+import com.example.feastly.events.OrderInfo
+import com.example.feastly.events.OrderStatus
 import com.feastly.security.InternalApi
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping

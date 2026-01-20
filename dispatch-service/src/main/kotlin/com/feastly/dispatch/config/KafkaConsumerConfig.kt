@@ -30,8 +30,8 @@ class KafkaConsumerConfig(
     @Bean
     fun consumerFactory(): ConsumerFactory<String, Any> {
         val jsonDeserializer = JsonDeserializer(Any::class.java).apply {
-            addTrustedPackages("com.feastly.*")
-            setUseTypeHeaders(true)
+            addTrustedPackages("com.feastly.dispatch.events", "java.util")
+            setUseTypeHeaders(false)
         }
 
         val configProps = mapOf(

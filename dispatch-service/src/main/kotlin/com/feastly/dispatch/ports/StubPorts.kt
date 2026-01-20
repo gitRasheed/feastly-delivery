@@ -1,8 +1,8 @@
 package com.feastly.dispatch.ports
 
-import com.feastly.events.AvailableDriver
-import com.feastly.events.OrderInfo
-import com.feastly.events.OrderStatus
+import com.feastly.dispatch.events.AvailableDriver
+import com.feastly.dispatch.events.OrderInfo
+import com.feastly.dispatch.events.OrderStatus
 import org.springframework.stereotype.Component
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
