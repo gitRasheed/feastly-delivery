@@ -8,7 +8,7 @@ A food delivery platform built with **Kotlin**, **Spring Boot 3**, and **microse
 - **Framework**: Spring Boot 3.4
 - **Messaging**: Apache Kafka (KRaft mode)
 - **Database**: PostgreSQL 15
-- **Cache**: Redis 7
+
 - **Observability**: Prometheus, Grafana, Loki, Tempo
 - **Build**: Gradle with Kotlin DSL
 
@@ -54,7 +54,7 @@ docker compose -f infra/docker-compose.yml up postgres kafka redis -d
 | Component | Port | URL |
 |-----------|------|-----|
 | PostgreSQL | 5432 | `localhost:5432` |
-| Redis | 6379 | `localhost:6379` |
+
 | Kafka | 9092 | `localhost:9092` |
 | Prometheus | 9090 | http://localhost:9090 |
 | Grafana | 3000 | http://localhost:3000 |
