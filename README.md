@@ -54,7 +54,6 @@ docker compose -f infra/docker-compose.yml up postgres kafka redis -d
 | Component | Port | URL |
 |-----------|------|-----|
 | PostgreSQL | 5432 | `localhost:5432` |
-
 | Kafka | 9092 | `localhost:9092` |
 | Prometheus | 9090 | http://localhost:9090 |
 | Grafana | 3000 | http://localhost:3000 |

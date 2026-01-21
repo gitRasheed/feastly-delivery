@@ -9,6 +9,7 @@ import com.example.feastly.events.DriverDeliveryFailedEvent
 import com.example.feastly.events.KafkaTopics
 import com.example.feastly.events.OrderPlacedEvent
 import com.example.feastly.events.RestaurantOrderAcceptedEvent
+import com.example.feastly.events.RestaurantOrderRejectedEvent
 import com.example.feastly.events.RestaurantOrderRequest
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -63,6 +64,7 @@ class OrderSagaManager(
     fun onRestaurantEvent(event: Any) {
         when (event) {
             is RestaurantOrderAcceptedEvent -> handleRestaurantOrderAccepted(event)
+            is RestaurantOrderRejectedEvent -> handleRestaurantOrderRejected(event)
             else -> log.debug("Ignoring event type on restaurant.events: {}", event::class.simpleName)
         }
     }
@@ -87,6 +89,24 @@ class OrderSagaManager(
         val command = AssignDriverCommand(orderId = order.id, restaurantId = order.restaurantId)
         kafkaTemplate.send(KafkaTopics.DISPATCH_ASSIGN_DRIVER, order.id.toString(), command)
         log.info("Saga emitted AssignDriverCommand for order {}", order.id)
+    }
+
+    private fun handleRestaurantOrderRejected(event: RestaurantOrderRejectedEvent) {
+        log.info("Saga received RestaurantOrderRejectedEvent for order {}: {}", event.orderId, event.reason)
+
+        val order = orderRepository.findById(event.orderId).orElse(null) ?: run {
+            log.warn("Order {} not found for saga processing", event.orderId)
+            return
+        }
+
+        if (order.getOrderStatus() == OrderStatus.CANCELLED) {
+            log.debug("Order {} already CANCELLED, skipping", event.orderId)
+            return
+        }
+
+        order.setOrderStatus(OrderStatus.CANCELLED)
+        orderRepository.save(order)
+        log.info("Order {} marked as CANCELLED due to restaurant rejection", order.id)
     }
 
     @KafkaListener(

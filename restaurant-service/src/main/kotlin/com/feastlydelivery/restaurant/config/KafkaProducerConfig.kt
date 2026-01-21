@@ -1,4 +1,4 @@
-package com.feastly.dispatch.config
+package com.feastlydelivery.restaurant.config
 
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.StringSerializer
