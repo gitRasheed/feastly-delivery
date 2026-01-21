@@ -22,7 +22,7 @@ class KafkaProducerConfig(
             ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG to StringSerializer::class.java,
             ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG to JsonSerializer::class.java,
             ProducerConfig.COMPRESSION_TYPE_CONFIG to "snappy",
-            JsonSerializer.ADD_TYPE_INFO_HEADERS to true
+            JsonSerializer.ADD_TYPE_INFO_HEADERS to false
         )
         return DefaultKafkaProducerFactory(configProps)
     }
