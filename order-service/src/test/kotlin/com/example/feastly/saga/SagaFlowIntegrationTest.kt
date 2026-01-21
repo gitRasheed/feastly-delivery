@@ -9,9 +9,13 @@ import com.example.feastly.order.OrderStatus
 import com.example.feastly.events.DeliveryCompletedEvent
 import com.example.feastly.events.DriverAssignedEvent
 import com.example.feastly.events.DriverDeliveryFailedEvent
+import com.example.feastly.events.KafkaTopics
+import com.example.feastly.events.OrderPlacedEvent
 import com.example.feastly.events.RestaurantOrderAcceptedEvent
+import com.example.feastly.outbox.OutboxRepository
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -39,11 +43,15 @@ class SagaFlowIntegrationTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var sagaManager: OrderSagaManager
 
+    @Autowired
+    private lateinit var outboxRepository: OutboxRepository
+
     private fun url(path: String) = "http://localhost:$port$path"
 
     @BeforeEach
     fun setUp() {
         TestRestaurantMenuClient.clearMenuItems()
+        outboxRepository.deleteAll()
     }
 
     private fun createMenuItem(restaurantId: UUID): UUID {
@@ -96,6 +104,16 @@ class SagaFlowIntegrationTest : BaseIntegrationTest() {
         val order = createOrder(userId, restaurantId, menuItemId)
         assertEquals(OrderStatus.SUBMITTED, order.status)
 
+        sagaManager.onOrderEvent(OrderPlacedEvent(
+            orderId = order.id,
+            userId = userId,
+            totalCents = 1000
+        ))
+
+        val restaurantRequestEntries = outboxRepository.findAll()
+            .filter { it.destinationTopic == KafkaTopics.RESTAURANT_ORDER_REQUEST }
+        assertTrue(restaurantRequestEntries.isNotEmpty(), "Expected RestaurantOrderRequest in outbox")
+
         sagaManager.onRestaurantEvent(RestaurantOrderAcceptedEvent(
             orderId = order.id,
             restaurantId = restaurantId
@@ -104,6 +122,10 @@ class SagaFlowIntegrationTest : BaseIntegrationTest() {
         await().atMost(5, TimeUnit.SECONDS).untilAsserted {
             assertEquals(OrderStatus.AWAITING_DRIVER, getOrderStatus(order.id, userId))
         }
+
+        val assignDriverEntries = outboxRepository.findAll()
+            .filter { it.destinationTopic == KafkaTopics.DISPATCH_ASSIGN_DRIVER }
+        assertTrue(assignDriverEntries.isNotEmpty(), "Expected AssignDriverCommand in outbox")
 
         sagaManager.onDispatchEvent(DriverAssignedEvent(
             orderId = order.id,
