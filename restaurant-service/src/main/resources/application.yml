@@ -1,6 +1,8 @@
 spring:
   application:
     name: restaurant-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/restaurants}
     username: ${SPRING_DATASOURCE_USERNAME:admin}

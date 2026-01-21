@@ -33,6 +33,13 @@ data class RestaurantOrderAcceptedEvent(
     val timestamp: Instant = Instant.now()
 )
 
+data class RestaurantOrderRejectedEvent(
+    val orderId: UUID,
+    val restaurantId: UUID,
+    val reason: String,
+    val timestamp: Instant = Instant.now()
+)
+
 data class AssignDriverCommand(
     val orderId: UUID,
     val restaurantId: UUID,
