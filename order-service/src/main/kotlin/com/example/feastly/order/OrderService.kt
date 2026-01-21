@@ -137,7 +137,8 @@ class OrderService(
             aggregateId = finalOrder.id,
             aggregateType = "Order",
             eventType = OrderEventType.ORDER_SUBMITTED.name,
-            payload = eventPayload
+            payload = eventPayload,
+            destinationTopic = ORDER_EVENTS_TOPIC
         ))
 
         return finalOrder

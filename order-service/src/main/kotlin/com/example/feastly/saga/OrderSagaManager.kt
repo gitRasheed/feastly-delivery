@@ -11,16 +11,19 @@ import com.example.feastly.events.OrderPlacedEvent
 import com.example.feastly.events.RestaurantOrderAcceptedEvent
 import com.example.feastly.events.RestaurantOrderRejectedEvent
 import com.example.feastly.events.RestaurantOrderRequest
+import com.example.feastly.outbox.OutboxEntry
+import com.example.feastly.outbox.OutboxRepository
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
-import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
 class OrderSagaManager(
     private val orderRepository: OrderRepository,
-    private val kafkaTemplate: KafkaTemplate<String, Any>
+    private val outboxRepository: OutboxRepository,
+    private val objectMapper: ObjectMapper
 ) {
     private val log = LoggerFactory.getLogger(OrderSagaManager::class.java)
 
@@ -51,8 +54,14 @@ class OrderSagaManager(
         }
 
         val request = RestaurantOrderRequest(orderId = order.id, restaurantId = order.restaurantId)
-        kafkaTemplate.send(KafkaTopics.RESTAURANT_ORDER_REQUEST, order.id.toString(), request)
-        log.info("Saga emitted RestaurantOrderRequest for order {}", order.id)
+        outboxRepository.save(OutboxEntry(
+            aggregateId = order.id,
+            aggregateType = "Order",
+            eventType = "RestaurantOrderRequest",
+            payload = objectMapper.writeValueAsString(request),
+            destinationTopic = KafkaTopics.RESTAURANT_ORDER_REQUEST
+        ))
+        log.info("Saga queued RestaurantOrderRequest for order {}", order.id)
     }
 
     @KafkaListener(
@@ -87,8 +96,14 @@ class OrderSagaManager(
         orderRepository.save(order)
 
         val command = AssignDriverCommand(orderId = order.id, restaurantId = order.restaurantId)
-        kafkaTemplate.send(KafkaTopics.DISPATCH_ASSIGN_DRIVER, order.id.toString(), command)
-        log.info("Saga emitted AssignDriverCommand for order {}", order.id)
+        outboxRepository.save(OutboxEntry(
+            aggregateId = order.id,
+            aggregateType = "Order",
+            eventType = "AssignDriverCommand",
+            payload = objectMapper.writeValueAsString(command),
+            destinationTopic = KafkaTopics.DISPATCH_ASSIGN_DRIVER
+        ))
+        log.info("Saga queued AssignDriverCommand for order {}", order.id)
     }
 
     private fun handleRestaurantOrderRejected(event: RestaurantOrderRejectedEvent) {
