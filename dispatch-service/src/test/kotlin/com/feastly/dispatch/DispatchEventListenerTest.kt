@@ -76,7 +76,6 @@ class DispatchEventListenerTest {
 
         listener.handleOrderEvents(createMapRecord(orderId, restaurantId))
 
-        // Assert: startDispatch called only once
         verify(dispatchService, org.mockito.kotlin.times(1)).startDispatch(orderId)
     }
 }

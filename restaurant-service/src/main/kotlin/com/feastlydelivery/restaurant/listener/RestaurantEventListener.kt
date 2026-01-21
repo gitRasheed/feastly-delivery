@@ -50,7 +50,6 @@ class RestaurantEventListener(
 
         val validationResult = validateRestaurant(restaurantId)
         
-        // Persist the order request
         val status = if (validationResult is ValidationResult.Valid) "PENDING" else "REJECTED"
         val order = RestaurantOrder(
             id = orderId,
