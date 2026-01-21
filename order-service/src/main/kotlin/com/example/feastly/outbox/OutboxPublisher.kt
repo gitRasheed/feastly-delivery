@@ -1,6 +1,7 @@
 package com.example.feastly.outbox
 
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -10,7 +11,7 @@ import java.time.Instant
 @Component
 class OutboxPublisher(
     private val outboxRepository: OutboxRepository,
-    private val kafkaTemplate: KafkaTemplate<String, Any>
+    @Qualifier("outboxKafkaTemplate") private val kafkaTemplate: KafkaTemplate<String, String>
 ) {
     private val log = LoggerFactory.getLogger(OutboxPublisher::class.java)
 

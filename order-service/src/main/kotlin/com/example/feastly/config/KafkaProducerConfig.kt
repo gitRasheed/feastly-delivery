@@ -28,4 +28,17 @@ class KafkaProducerConfig(
 
     @Bean
     fun kafkaTemplate(): KafkaTemplate<String, Any> = KafkaTemplate(producerFactory())
+
+    @Bean
+    fun outboxProducerFactory(): ProducerFactory<String, String> {
+        val configProps = mapOf(
+            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG to bootstrapServers,
+            ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG to StringSerializer::class.java,
+            ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG to StringSerializer::class.java
+        )
+        return DefaultKafkaProducerFactory(configProps)
+    }
+
+    @Bean
+    fun outboxKafkaTemplate(): KafkaTemplate<String, String> = KafkaTemplate(outboxProducerFactory())
 }
