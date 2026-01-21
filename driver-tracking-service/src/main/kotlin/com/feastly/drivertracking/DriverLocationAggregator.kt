@@ -1,7 +1,7 @@
 package com.feastly.drivertracking
 
-import com.feastly.events.DriverLocationEvent
-import com.feastly.events.KafkaTopics
+import com.feastly.drivertracking.dto.DriverLocationEvent
+import com.feastly.drivertracking.dto.KafkaTopics
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.scheduling.annotation.Scheduled

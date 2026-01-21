@@ -13,7 +13,6 @@ java {
 }
 
 dependencies {
-    implementation(project(":shared-events"))
     implementation(project(":shared-security"))
     
     implementation("org.springframework.boot:spring-boot-starter-web")
