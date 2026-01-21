@@ -35,31 +35,46 @@ import java.util.concurrent.TimeUnit
 class RestaurantMessagingIntegrationTest {
 
     @Autowired
+    private lateinit var restaurantOrderRepository: RestaurantOrderRepository
+    
+    @Autowired
+    private lateinit var restaurantRepository: RestaurantRepository
+
+    @Autowired
     private lateinit var kafkaTemplate: KafkaTemplate<String, Any>
 
     @Test
-    fun `should receive message on restaurant order request topic`() {
+    fun `should persist restaurant order request and emit accepted event`() {
+        // Setup existing restaurant
+        val restaurantId = UUID.randomUUID()
+        val restaurant = Restaurant(
+            id = restaurantId,
+            ownerUserId = UUID.randomUUID(),
+            name = "Test Bistro",
+            isOpen = true
+        )
+        restaurantRepository.save(restaurant)
 
         val orderId = UUID.randomUUID()
-        val restaurantId = UUID.randomUUID()
         val testMessage = mapOf(
             "orderId" to orderId.toString(),
             "restaurantId" to restaurantId.toString(),
             "timestamp" to System.currentTimeMillis().toString()
         )
 
-
         kafkaTemplate.send(KafkaTopics.RESTAURANT_ORDER_REQUEST, orderId.toString(), testMessage)
 
-
-        val received = TestMessageReceiver.latch.await(10, TimeUnit.SECONDS)
+        org.awaitility.Awaitility.await()
+            .atMost(10, TimeUnit.SECONDS)
+            .untilAsserted {
+                val order = restaurantOrderRepository.findById(orderId)
+                assertTrue(order.isPresent, "Order should be persisted")
+                assertTrue(order.get().status == "PENDING", "Order status should be PENDING")
+            }
         
-        assertTrue(received) { 
-            "Restaurant service did not receive the Kafka message! The service is DEAF." 
-        }
-        assertTrue(TestMessageReceiver.receivedMessages.isNotEmpty()) {
-            "No messages were captured by the test listener"
-        }
+        // Also verify event emission using existing mechanism
+        val received = TestMessageReceiver.latch.await(10, TimeUnit.SECONDS)
+        assertTrue(received, "Should receive accepted event")
     }
 
     /**

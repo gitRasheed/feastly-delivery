@@ -57,6 +57,18 @@ class DispatchService(
                 logger.warn("Order $orderId not found")
                 return null
             }
+        
+        // Defensive check for existing dispatch attempts
+        val existingAttempts = dispatchAttemptRepository.findByOrderId(orderId)
+        val hasActive = existingAttempts.any { attempt ->
+            attempt.status == DispatchAttemptStatus.ACCEPTED ||
+                (attempt.status == DispatchAttemptStatus.PENDING &&
+                    attempt.driverId != PLACEHOLDER_DRIVER_ID)
+        }
+        if (hasActive) {
+            logger.info("Dispatch already active for order $orderId, skipping startDispatch")
+            return null
+        }
 
         // Preconditions
         if (orderInfo.status != OrderStatus.ACCEPTED) {

@@ -53,6 +53,11 @@ class OrderSagaManager(
             return
         }
 
+        if (outboxRepository.existsByAggregateIdAndEventType(order.id, "RestaurantOrderRequest")) {
+            log.info("Order {} already has a RestaurantOrderRequest in outbox, skipping", order.id)
+            return
+        }
+
         val request = RestaurantOrderRequest(orderId = order.id, restaurantId = order.restaurantId)
         outboxRepository.save(OutboxEntry(
             aggregateId = order.id,

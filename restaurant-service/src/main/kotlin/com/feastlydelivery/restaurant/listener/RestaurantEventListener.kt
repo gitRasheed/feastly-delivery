@@ -14,9 +14,13 @@ import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
 import java.util.UUID
 
+import com.feastlydelivery.restaurant.RestaurantOrder
+import com.feastlydelivery.restaurant.RestaurantOrderRepository
+
 @Component
 class RestaurantEventListener(
     private val restaurantRepository: RestaurantRepository,
+    private val restaurantOrderRepository: RestaurantOrderRepository,
     private val kafkaTemplate: KafkaTemplate<String, Any>
 ) {
     private val logger = LoggerFactory.getLogger(RestaurantEventListener::class.java)
@@ -45,6 +49,15 @@ class RestaurantEventListener(
         logger.info("Processing RestaurantOrderRequest for order {} restaurant {}", orderId, restaurantId)
 
         val validationResult = validateRestaurant(restaurantId)
+        
+        // Persist the order request
+        val status = if (validationResult is ValidationResult.Valid) "PENDING" else "REJECTED"
+        val order = RestaurantOrder(
+            id = orderId,
+            restaurantId = restaurantId,
+            status = status
+        )
+        restaurantOrderRepository.save(order)
         
         when (validationResult) {
             is ValidationResult.Valid -> emitAccepted(orderId, restaurantId)

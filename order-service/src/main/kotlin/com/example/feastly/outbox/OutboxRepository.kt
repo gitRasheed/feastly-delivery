@@ -5,4 +5,5 @@ import java.util.UUID
 
 interface OutboxRepository : JpaRepository<OutboxEntry, UUID> {
     fun findByPublishedAtIsNullOrderByCreatedAtAsc(): List<OutboxEntry>
+    fun existsByAggregateIdAndEventType(aggregateId: UUID, eventType: String): Boolean
 }

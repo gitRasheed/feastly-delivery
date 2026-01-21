@@ -72,3 +72,18 @@ class MenuItem(
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now()
 )
+
+@Entity
+@Table(name = "restaurant_orders")
+class RestaurantOrder(
+    @Id val id: UUID,
+    
+    @Column(name = "restaurant_id", nullable = false)
+    val restaurantId: UUID,
+    
+    @Column(nullable = false)
+    var status: String,
+    
+    @Column(name = "created_at", nullable = false)
+    val createdAt: Instant = Instant.now()
+)

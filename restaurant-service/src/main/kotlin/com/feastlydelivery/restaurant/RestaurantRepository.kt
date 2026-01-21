@@ -15,3 +15,5 @@ interface MenuItemRepository : JpaRepository<MenuItem, UUID> {
     fun findByRestaurantId(restaurantId: UUID): List<MenuItem>
     fun findByCategoryId(categoryId: UUID): List<MenuItem>
 }
+
+interface RestaurantOrderRepository : JpaRepository<RestaurantOrder, UUID>

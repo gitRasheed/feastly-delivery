@@ -79,23 +79,27 @@ class OutboxIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `saga creates outbox entry for OrderPlacedEvent when status is SUBMITTED`() {
+    fun `saga creates exactly one outbox entry for OrderPlacedEvent (idempotency)`() {
         val userId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
         val menuItemId = createMenuItem(restaurantId)
         val order = createOrder(userId, restaurantId, menuItemId)
 
-        sagaManager.onOrderEvent(OrderPlacedEvent(
+        val event = OrderPlacedEvent(
             orderId = order.id,
             userId = userId,
             totalCents = 1000
-        ))
+        )
+
+        // Trigger twice to simulate duplicate delivery
+        sagaManager.onOrderEvent(event)
+        sagaManager.onOrderEvent(event)
 
         val entries = outboxRepository.findAll()
             .filter { it.destinationTopic == KafkaTopics.RESTAURANT_ORDER_REQUEST }
             .filter { it.aggregateId == order.id }
 
-        assertTrue(entries.isNotEmpty(), "Expected at least 1 RestaurantOrderRequest entry")
+        assertEquals(1, entries.size, "Expected exactly 1 RestaurantOrderRequest entry, but found ${entries.size}")
     }
 
     @Test
