@@ -28,6 +28,9 @@ class OutboxEntry(
     @Column(name = "payload", nullable = false, columnDefinition = "jsonb")
     val payload: String,
 
+    @Column(name = "destination_topic", nullable = false)
+    val destinationTopic: String = "order.events",
+
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
 
