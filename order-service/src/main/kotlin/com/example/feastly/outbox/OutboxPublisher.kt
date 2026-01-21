@@ -14,10 +14,6 @@ class OutboxPublisher(
 ) {
     private val log = LoggerFactory.getLogger(OutboxPublisher::class.java)
 
-    companion object {
-        private const val TOPIC = "order.events"
-    }
-
     @Scheduled(fixedRate = 1000)
     @Transactional
     fun publishPendingEvents() {
@@ -25,12 +21,12 @@ class OutboxPublisher(
 
         for (entry in pendingEntries) {
             try {
-                kafkaTemplate.send(TOPIC, entry.id.toString(), entry.payload).get()
+                kafkaTemplate.send(entry.destinationTopic, entry.id.toString(), entry.payload).get()
                 entry.publishedAt = Instant.now()
                 outboxRepository.save(entry)
-                log.debug("Published outbox entry {} of type {}", entry.id, entry.eventType)
+                log.debug("Published outbox entry {} to topic {}", entry.id, entry.destinationTopic)
             } catch (e: Exception) {
-                log.warn("Failed to publish outbox entry {}: {}", entry.id, e.message)
+                log.warn("Failed to publish outbox entry {} to topic {}: {}", entry.id, entry.destinationTopic, e.message)
             }
         }
     }
