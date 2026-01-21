@@ -1,6 +1,7 @@
 package com.feastlydelivery.restaurant.listener
 
 import com.feastlydelivery.restaurant.Restaurant
+import com.feastlydelivery.restaurant.RestaurantOrderRepository
 import com.feastlydelivery.restaurant.RestaurantRepository
 import com.feastlydelivery.restaurant.config.KafkaTopics
 import com.feastlydelivery.restaurant.events.RestaurantOrderAcceptedEvent
@@ -28,6 +29,9 @@ class RestaurantEventListenerTest {
 
     @Mock
     private lateinit var restaurantRepository: RestaurantRepository
+
+    @Mock
+    private lateinit var restaurantOrderRepository: RestaurantOrderRepository
 
     @Mock
     private lateinit var kafkaTemplate: KafkaTemplate<String, Any>
