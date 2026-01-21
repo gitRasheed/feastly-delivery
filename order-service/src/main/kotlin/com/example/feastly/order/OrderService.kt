@@ -73,12 +73,12 @@ class OrderService(
             throw RestaurantNotFoundException(request.restaurantId)
         }
 
-        // Fetch menu items from restaurant-service
+
         val menuItemIds = request.items.map { it.menuItemId }
         val fetchedItems = restaurantMenuClient.batchGetMenuItems(menuItemIds)
         val menuItemsById = fetchedItems.associateBy { it.id }
 
-        // Validate all items exist, are available, and belong to the same restaurant
+
         val menuItems = request.items.map { itemRequest ->
             val menuItem = menuItemsById[itemRequest.menuItemId]
                 ?: throw MenuItemNotFoundException(itemRequest.menuItemId)

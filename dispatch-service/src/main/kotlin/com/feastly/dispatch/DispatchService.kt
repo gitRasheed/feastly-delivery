@@ -85,7 +85,7 @@ class DispatchService(
             .map { it.driverId }
             .toSet()
 
-        // Filter and sort by distance
+
         val eligibleDrivers = availableDrivers
             .filter { it.driverId !in excludedDriverIds }
             .sortedBy { driver ->
@@ -97,7 +97,7 @@ class DispatchService(
             return null
         }
 
-        // Offer to the first eligible driver
+
         val selectedDriver = eligibleDrivers.first()
         val attempt = DispatchAttempt(
             orderId = orderId,
@@ -163,7 +163,7 @@ class DispatchService(
             return false
         }
 
-        // Update dispatch attempt
+
         val attempt = dispatchAttemptRepository.findByOrderIdAndDriverId(orderId, driverId)
         if (attempt != null && attempt.status == DispatchAttemptStatus.ACCEPTED) {
             attempt.status = DispatchAttemptStatus.CANCELLED
@@ -171,13 +171,13 @@ class DispatchService(
             dispatchAttemptRepository.save(attempt)
         }
 
-        // Reset order
+
         orderQueryPort.updateOrderDriver(orderId, null)
         orderQueryPort.updateOrderStatus(orderId, OrderStatus.ACCEPTED)
 
         logger.info("Driver $driverId cancelled assignment for order $orderId")
 
-        // Trigger re-dispatch
+
         startDispatch(orderId)
 
         return true
@@ -207,7 +207,7 @@ class DispatchService(
             logger.info("Expired stale offer for order ${offer.orderId} to driver ${offer.driverId}")
         }
 
-        // Re-dispatch for affected orders
+
         orderIds.forEach { orderId ->
             val orderInfo = orderQueryPort.getOrderInfo(orderId)
             if (orderInfo != null && orderInfo.status == OrderStatus.ACCEPTED && orderInfo.assignedDriverId == null) {

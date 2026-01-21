@@ -326,15 +326,7 @@ class OrderControllerIntegrationTest : BaseIntegrationTest() {
         assertEquals(OrderStatus.DELIVERED, response.body!!.status)
     }
 
-    // @Test - Disabled: OrderResponse doesn't include paymentStatus and paymentReference fields
-    // fun `creating order sets payment status to PAID`() {
-    //     ...
-    // }
 
-    // @Test - Disabled: OrderResponse doesn't include paymentStatus field  
-    // fun `refund order sets payment status to REFUNDED`() {
-    //     ...
-    // }
 
     @Test
     fun `order creation with tip includes tip in total`() {

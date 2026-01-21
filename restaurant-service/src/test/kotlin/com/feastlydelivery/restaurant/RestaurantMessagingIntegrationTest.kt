@@ -39,7 +39,7 @@ class RestaurantMessagingIntegrationTest {
 
     @Test
     fun `should receive message on restaurant order request topic`() {
-        // Given: a test message simulating RestaurantOrderRequest
+
         val orderId = UUID.randomUUID()
         val restaurantId = UUID.randomUUID()
         val testMessage = mapOf(
@@ -48,10 +48,10 @@ class RestaurantMessagingIntegrationTest {
             "timestamp" to System.currentTimeMillis().toString()
         )
 
-        // When: we send a message to the restaurant.order.request topic
+
         kafkaTemplate.send(KafkaTopics.RESTAURANT_ORDER_REQUEST, orderId.toString(), testMessage)
 
-        // Then: the service should receive it within 10 seconds
+
         val received = TestMessageReceiver.latch.await(10, TimeUnit.SECONDS)
         
         assertTrue(received) { 
