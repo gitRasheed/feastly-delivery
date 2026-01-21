@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import com.feastly.events.DriverLocationEvent
+import com.feastly.drivertracking.dto.DriverLocationEvent
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue

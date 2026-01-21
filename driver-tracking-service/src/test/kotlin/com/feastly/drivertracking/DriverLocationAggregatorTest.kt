@@ -1,7 +1,7 @@
 package com.feastly.drivertracking
 
-import com.feastly.events.DriverLocationEvent
-import com.feastly.events.KafkaTopics
+import com.feastly.drivertracking.dto.DriverLocationEvent
+import com.feastly.drivertracking.dto.KafkaTopics
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
